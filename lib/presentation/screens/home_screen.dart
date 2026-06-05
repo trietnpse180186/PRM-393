@@ -5,6 +5,13 @@ import '../bloc/auth/auth_bloc.dart';
 import '../bloc/auth/auth_event.dart';
 import '../bloc/auth/auth_state.dart';
 import 'welcome_screen.dart';
+import 'library_screen.dart';
+import 'profile_screen.dart';
+import 'notification_screen.dart';
+import 'course_details_screen.dart';
+import '../../data/models/enrollment_model.dart';
+import '../bloc/learning/learning_cubit.dart';
+import '../bloc/learning/learning_state.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,6 +22,19 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authState = context.read<AuthBloc>().state;
+      int userId = 3;
+      if (authState is AuthAuthenticated) {
+        userId = authState.user.id;
+      }
+      context.read<LearningCubit>().loadCatalog(userId);
+    });
+  }
 
   void _onLogout() {
     showDialog(
@@ -46,88 +66,196 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  PreferredSizeWidget? _buildAppBar(BuildContext context, TextTheme textTheme, String username) {
+    if (_currentIndex == 0) {
+      return AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: AppTheme.backgroundColor,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: AppTheme.surfaceContainerHighest,
+              child: const Icon(Icons.person_rounded, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Xin chào,',
+                    style: textTheme.bodyMedium?.copyWith(
+                      fontSize: 12,
+                      color: AppTheme.onSurfaceVariant,
+                    ),
+                  ),
+                  Text(
+                    username,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: textTheme.bodyLarge?.copyWith(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined, color: AppTheme.onSurfaceVariant),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout_rounded, color: Color(0xFFE46C6C)),
+            onPressed: _onLogout,
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(
+            color: Colors.white.withOpacity(0.05),
+            height: 1.0,
+          ),
+        ),
+      );
+    } else if (_currentIndex == 1) {
+      return AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: AppTheme.backgroundColor,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: true,
+        title: Text(
+          'VSL LEARNER',
+          style: textTheme.headlineSmall?.copyWith(
+            color: AppTheme.primaryColor,
+            fontWeight: FontWeight.bold,
+            letterSpacing: -0.5,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined, color: AppTheme.onSurfaceVariant),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationScreen()),
+              );
+            },
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(
+            color: Colors.white.withOpacity(0.05),
+            height: 1.0,
+          ),
+        ),
+      );
+    } else {
+      return AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: AppTheme.backgroundColor,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: true,
+        title: Text(
+          'VSL LEARNER',
+          style: textTheme.headlineSmall?.copyWith(
+            color: AppTheme.primaryColor,
+            fontWeight: FontWeight.bold,
+            letterSpacing: -0.5,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined, color: AppTheme.onSurfaceVariant),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationScreen()),
+              );
+            },
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(
+            color: Colors.white.withOpacity(0.05),
+            height: 1.0,
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _buildBody(String username) {
+    switch (_currentIndex) {
+      case 0:
+        return _buildHomeContent(username);
+      case 1:
+        return const LibraryScreen();
+      case 2:
+        return const ProfileScreen();
+      default:
+        return _buildHomeContent(username);
+    }
+  }
+
+  Widget _buildHomeContent(String username) {
     final textTheme = Theme.of(context).textTheme;
 
-    return BlocBuilder<AuthBloc, AuthState>(
+    return BlocBuilder<LearningCubit, LearningState>(
       builder: (context, state) {
-        String username = 'Học viên VSL';
-        if (state is AuthAuthenticated) {
-          username = state.user.fullName;
+        // Calculate average enrollment progress
+        double overallProgress = 0.0;
+        int userId = 3;
+        final authState = context.read<AuthBloc>().state;
+        if (authState is AuthAuthenticated) {
+          userId = authState.user.id;
         }
 
-        return Scaffold(
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            backgroundColor: AppTheme.backgroundColor,
-            title: Row(
-              children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: AppTheme.surfaceContainerHighest,
-                  child: const Icon(Icons.person_rounded, color: Colors.white, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Xin chào,',
-                        style: textTheme.bodyMedium?.copyWith(
-                          fontSize: 12,
-                          color: AppTheme.onSurfaceVariant,
-                        ),
-                      ),
-                      Text(
-                        username,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: textTheme.bodyLarge?.copyWith(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.notifications_outlined, color: AppTheme.onSurfaceVariant),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Không có thông báo mới.'),
-                      backgroundColor: AppTheme.surfaceContainer,
-                    ),
-                  );
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.logout_rounded, color: Color(0xFFE46C6C)),
-                onPressed: _onLogout,
-              ),
-            ],
-            elevation: 0,
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(1.0),
-              child: Container(
-                color: Colors.white.withOpacity(0.05),
-                height: 1.0,
-              ),
-            ),
-          ),
-          body: Stack(
-            children: [
-              // Dark background
-              Container(color: AppTheme.backgroundColor),
+        if (state.enrollments.isNotEmpty) {
+          double total = 0.0;
+          for (final e in state.enrollments) {
+            total += e.progressPercent;
+          }
+          overallProgress = total / state.enrollments.length;
+        }
+        final overallProgressFraction = overallProgress / 100.0;
 
-              SingleChildScrollView(
+        // Find progress of "Chào hỏi" (course ID 6)
+        final chaoHoiEnroll = state.enrollments.firstWhere(
+          (e) => e.courseId == 6,
+          orElse: () => EnrollmentModel(
+            id: 0,
+            userId: userId,
+            courseId: 6,
+            progressPercent: 0.0,
+            status: 'NotStarted',
+          ),
+        );
+        final chaoHoiProgress = chaoHoiEnroll.progressPercent / 100.0;
+
+        return Stack(
+          children: [
+            // Dark background
+            Container(color: AppTheme.backgroundColor),
+            SafeArea(
+              child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -178,10 +306,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             const SizedBox(height: 16),
                             ElevatedButton(
                               onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Đang tải bài học hôm nay...'),
-                                    backgroundColor: AppTheme.surfaceContainer,
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const CourseDetailsScreen(courseId: 6, courseTitle: 'Chào hỏi'),
                                   ),
                                 );
                               },
@@ -211,7 +339,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 20),
 
-                      // Bento grid - Row of columns or stacked on mobile
                       // Progress Panel
                       AppTheme.glassPanel(
                         borderRadius: 20.0,
@@ -225,10 +352,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Text(
                                   'Tiến trình học tập',
                                   style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
                                 ),
                                 Icon(Icons.trending_up_rounded, color: AppTheme.primaryColor),
                               ],
@@ -243,7 +370,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     width: 120,
                                     height: 120,
                                     child: CircularProgressIndicator(
-                                      value: 0.75,
+                                      value: overallProgressFraction,
                                       strokeWidth: 10,
                                       backgroundColor: Colors.white.withOpacity(0.05),
                                       valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
@@ -253,7 +380,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
-                                        '75%',
+                                        '${overallProgress.toInt()}%',
                                         style: textTheme.headlineMedium?.copyWith(
                                           fontWeight: FontWeight.bold,
                                           color: AppTheme.primaryColor,
@@ -351,7 +478,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                               TextButton(
-                                onPressed: () {},
+                                onPressed: () {
+                                  setState(() {
+                                    _currentIndex = 1; // Swap to Library tab
+                                  });
+                                },
                                 child: const Text(
                                   'Xem tất cả',
                                   style: TextStyle(color: AppTheme.primaryColor),
@@ -364,22 +495,25 @@ class _HomeScreenState extends State<HomeScreen> {
                           _buildTopicCard(
                             icon: Icons.waving_hand_rounded,
                             title: 'Chào hỏi',
-                            lessonsCount: 15,
-                            progress: 1.0,
+                            lessonsCount: 2,
+                            progress: chaoHoiProgress,
+                            courseId: 6,
                           ),
                           const SizedBox(height: 12),
                           _buildTopicCard(
                             icon: Icons.onetwothree_rounded,
                             title: 'Số đếm',
                             lessonsCount: 10,
-                            progress: 0.5,
+                            progress: 0.0,
+                            courseId: 7,
                           ),
                           const SizedBox(height: 12),
                           _buildTopicCard(
                             icon: Icons.family_restroom_rounded,
                             title: 'Gia đình',
                             lessonsCount: 20,
-                            progress: 0.25,
+                            progress: 0.0,
+                            courseId: 8,
                           ),
                         ],
                       ),
@@ -388,8 +522,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        String username = 'Học viên VSL';
+        if (state is AuthAuthenticated) {
+          username = state.user.fullName;
+        }
+
+        return Scaffold(
+          appBar: _buildAppBar(context, textTheme, username),
+          body: _buildBody(username),
           bottomNavigationBar: ClipRRect(
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(16.0),
@@ -410,17 +563,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   setState(() {
                     _currentIndex = index;
                   });
-                  if (index == 2) {
-                    // Profile button logs out for now as authentication screen test
-                    _onLogout();
-                  } else if (index == 1) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Thư viện bài học đang được phát triển.'),
-                        backgroundColor: AppTheme.surfaceContainer,
-                      ),
-                    );
-                  }
                 },
                 backgroundColor: AppTheme.surfaceColor.withOpacity(0.8),
                 selectedItemColor: AppTheme.primaryColor,
@@ -455,56 +597,67 @@ class _HomeScreenState extends State<HomeScreen> {
     required String title,
     required int lessonsCount,
     required double progress,
+    required int courseId,
   }) {
-    return AppTheme.glassPanel(
-      borderRadius: 16.0,
-      padding: const EdgeInsets.all(16.0),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: AppTheme.primaryColor, size: 24),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CourseDetailsScreen(courseId: courseId, courseTitle: title),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$lessonsCount bài học',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(2),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    backgroundColor: Colors.white.withOpacity(0.05),
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
-                    minHeight: 4,
-                  ),
-                ),
-              ],
+        );
+      },
+      child: AppTheme.glassPanel(
+        borderRadius: 16.0,
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: AppTheme.primaryColor, size: 24),
             ),
-          ),
-        ],
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$lessonsCount bài học',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      backgroundColor: Colors.white.withOpacity(0.05),
+                      valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                      minHeight: 4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
