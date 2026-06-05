@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class ApiConstants {
@@ -7,7 +6,7 @@ class ApiConstants {
       return "http://localhost:5000";
     }
     // Connect to the computer's current local Wi-Fi IP address
-    return "http://192.168.2.62:5000";
+    return "http://10.87.18.106:5000";
   }
 
   static String get login => "$baseUrl/api/users/login";
