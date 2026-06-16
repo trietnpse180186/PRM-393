@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/datasources/learning_remote_data_source.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/auth/auth_event.dart';
 import '../bloc/auth/auth_state.dart';
@@ -8,8 +9,63 @@ import 'welcome_screen.dart';
 import 'setting_screen.dart';
 import 'support_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  int _streakDays = 0;
+  int _completedWords = 0;
+  bool _isLoadingData = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileData();
+  }
+
+  Future<void> _loadProfileData() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingData = true;
+    });
+
+    try {
+      final authState = context.read<AuthBloc>().state;
+      if (authState is AuthAuthenticated) {
+        final userId = authState.user.id;
+        final learningRemoteDataSource = context.read<LearningRemoteDataSource>();
+
+        final results = await Future.wait([
+          learningRemoteDataSource.fetchUserStreak(userId),
+          learningRemoteDataSource.fetchTotalCompletedWords(userId),
+        ]);
+
+        if (mounted) {
+          setState(() {
+            _streakDays = results[0];
+            _completedWords = results[1];
+            _isLoadingData = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoadingData = false;
+          });
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoadingData = false;
+        });
+      }
+    }
+  }
 
   void _onLogout(BuildContext context) {
     showDialog(
@@ -49,12 +105,18 @@ class ProfileScreen extends StatelessWidget {
       builder: (context, state) {
         String fullName = 'Nguyễn Văn A';
         String email = 'vana.nguyen@vsl.edu.vn';
+        int userId = 0;
         if (state is AuthAuthenticated) {
           fullName = state.user.fullName;
           email = state.user.email;
+          userId = state.user.id;
         }
 
-        return SingleChildScrollView(
+        return RefreshIndicator(
+          onRefresh: _loadProfileData,
+          color: AppTheme.primaryColor,
+          backgroundColor: AppTheme.surfaceContainer,
+          child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
@@ -188,7 +250,7 @@ class ProfileScreen extends StatelessWidget {
                               text: TextSpan(
                                 children: [
                                   TextSpan(
-                                    text: '14 ',
+                                    text: '$_streakDays ',
                                     style: textTheme.headlineLarge?.copyWith(
                                       fontSize: 28,
                                       fontWeight: FontWeight.bold,
@@ -209,16 +271,16 @@ class ProfileScreen extends StatelessWidget {
                             // Mini progress indicator bar
                             ClipRRect(
                               borderRadius: BorderRadius.circular(4),
-                              child: const LinearProgressIndicator(
-                                value: 1.0,
+                              child: LinearProgressIndicator(
+                                value: _streakDays > 0 ? 1.0 : 0.0,
                                 minHeight: 6,
                                 backgroundColor: Colors.white10,
-                                valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+                                valueColor: const AlwaysStoppedAnimation(AppTheme.primaryColor),
                               ),
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              'Đang giữ lửa! 🔥',
+                              _streakDays > 0 ? 'Đang giữ lửa! 🔥' : 'Bắt đầu học ngay! ⚡',
                               style: textTheme.bodyMedium?.copyWith(
                                 fontSize: 11,
                                 color: AppTheme.primaryColor,
@@ -230,46 +292,71 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Mastery Card
+                    // Completed Words Card (replaces Mastery Card)
                     Expanded(
                       child: AppTheme.glassPanel(
                         padding: const EdgeInsets.all(16.0),
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'Độ thuần thục',
-                                style: textTheme.labelLarge?.copyWith(
-                                  fontSize: 11,
-                                  color: AppTheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Stack(
-                              alignment: Alignment.center,
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                SizedBox(
-                                  width: 80,
-                                  height: 80,
-                                  child: CircularProgressIndicator(
-                                    value: 0.75,
-                                    strokeWidth: 6,
-                                    backgroundColor: Colors.white.withOpacity(0.05),
-                                    valueColor: const AlwaysStoppedAnimation(AppTheme.primaryColor),
+                                Text(
+                                  'Từ đã học',
+                                  style: textTheme.labelLarge?.copyWith(
+                                    fontSize: 11,
+                                    color: AppTheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                Text(
-                                  '75%',
-                                  style: textTheme.headlineSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                  ),
+                                const Icon(
+                                  Icons.menu_book_rounded,
+                                  color: AppTheme.secondaryColor,
+                                  size: 24,
                                 ),
                               ],
+                            ),
+                            const SizedBox(height: 12),
+                            RichText(
+                              text: TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: '$_completedWords ',
+                                    style: textTheme.headlineLarge?.copyWith(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.secondaryColor,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: 'từ',
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      fontSize: 13,
+                                      color: AppTheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: _completedWords > 0 ? 1.0 : 0.0,
+                                minHeight: 6,
+                                backgroundColor: Colors.white10,
+                                valueColor: const AlwaysStoppedAnimation(AppTheme.secondaryColor),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              _completedWords > 0 ? 'Tuyệt vời! 🌟' : 'Bắt đầu học thôi! 🚀',
+                              style: textTheme.bodyMedium?.copyWith(
+                                fontSize: 11,
+                                color: AppTheme.secondaryColor,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
@@ -366,8 +453,15 @@ class ProfileScreen extends StatelessWidget {
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => SettingScreen(initialName: fullName, initialEmail: email, initialPhone: '090 123 4567')),
-                          );
+                            MaterialPageRoute(
+                              builder: (_) => SettingScreen(
+                                userId: userId,
+                                initialName: fullName,
+                                initialEmail: email,
+                                initialPhone: '090 123 4567',
+                              ),
+                            ),
+                          ).then((_) => _loadProfileData());
                         },
                       ),
                       Divider(color: Colors.white.withOpacity(0.05), height: 1),
@@ -391,14 +485,14 @@ class ProfileScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
               ],
             ),
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildChartBar(
     String label,

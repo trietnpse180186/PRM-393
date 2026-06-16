@@ -52,5 +52,25 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       } catch (_) {}
       emit(AuthUnauthenticated());
     });
+
+    on<AuthGoogleLoginRequested>((event, emit) async {
+      emit(AuthLoading());
+      try {
+        final user = await _authRemoteDataSource.loginWithGoogle();
+        emit(AuthAuthenticated(user));
+      } catch (e) {
+        emit(AuthFailure(e.toString().replaceAll('Exception: ', '')));
+      }
+    });
+
+    on<AuthDeleteAccountRequested>((event, emit) async {
+      emit(AuthLoading());
+      try {
+        await _authRemoteDataSource.deleteAccount(event.userId);
+        emit(AuthUnauthenticated());
+      } catch (e) {
+        emit(AuthFailure(e.toString().replaceAll('Exception: ', '')));
+      }
+    });
   }
 }
