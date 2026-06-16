@@ -48,11 +48,13 @@ class LearningCubit extends Cubit<LearningState> {
 
       // Fetch progress
       final progress = await _dataSource.fetchUserProgress(userId, courseId);
+      final enrollments = await _dataSource.fetchUserEnrollments(userId);
 
       emit(state.copyWith(
         isLoading: false,
         currentCourseLessons: courseLessons,
         currentCourseProgress: progress,
+        enrollments: enrollments,
       ));
     } catch (e) {
       emit(state.copyWith(

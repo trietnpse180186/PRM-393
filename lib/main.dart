@@ -37,20 +37,23 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider<AuthBloc>(
-          create: (context) => AuthBloc(authRemoteDataSource)..add(AuthCheckRequested()),
+    return RepositoryProvider<LearningRemoteDataSource>.value(
+      value: learningRemoteDataSource,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider<AuthBloc>(
+            create: (context) => AuthBloc(authRemoteDataSource)..add(AuthCheckRequested()),
+          ),
+          BlocProvider<LearningCubit>(
+            create: (context) => LearningCubit(learningRemoteDataSource),
+          ),
+        ],
+        child: MaterialApp(
+          title: 'VSL Learner',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.darkTheme,
+          home: const AuthWrapper(),
         ),
-        BlocProvider<LearningCubit>(
-          create: (context) => LearningCubit(learningRemoteDataSource),
-        ),
-      ],
-      child: MaterialApp(
-        title: 'VSL Learner',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.darkTheme,
-        home: const AuthWrapper(),
       ),
     );
   }

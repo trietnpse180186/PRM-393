@@ -48,14 +48,19 @@ class _AiGradingExerciseScreenState extends State<AiGradingExerciseScreen> with 
     });
 
     // Simulate 2 seconds of analysis before navigating to results
-    _analysisTimer = Timer(const Duration(seconds: 2), () {
+    _analysisTimer = Timer(const Duration(seconds: 2), () async {
       if (!mounted) return;
-      Navigator.pushReplacement(
+      final result = await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => AiGradingScoreScreen(lesson: widget.lesson),
         ),
       );
+
+      if (!mounted) return;
+      if (result != null) {
+        Navigator.pop(context, result);
+      }
     });
   }
 

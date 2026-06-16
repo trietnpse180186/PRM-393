@@ -156,6 +156,17 @@ class LearningRemoteDataSource {
       throw Exception('Lỗi ghi danh khóa học: ${e.toString()}');
     }
   }
+
+  Future<String?> fetchVideoUrl(int mediaId) async {
+    try {
+      final response = await _dioClient.dio.get('/api/media_assets/$mediaId');
+      if (response.statusCode == 200) {
+        final data = response.data;
+        return (data['fileUrl'] ?? data['FileUrl']) as String?;
+      }
+    } catch (_) {}
+    return null;
+  }
 }
 
 extension DateTimeExtension on DateTime {

@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/course_model.dart';
 import '../../data/models/lesson_model.dart';
-import '../../data/models/enrollment_model.dart';
 import '../../data/models/user_lesson_progress_model.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/auth/auth_state.dart';
@@ -145,19 +144,32 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
             ),
           );
 
-          // Get enrollment progress
-          final enrollment = state.enrollments.firstWhere(
-            (e) => e.courseId == widget.courseId,
-            orElse: () => EnrollmentModel(
-              id: 0,
-              userId: _userId,
-              courseId: widget.courseId,
-              progressPercent: 0.0,
-              status: 'NotStarted',
-            ),
-          );
 
-          final progressFraction = enrollment.progressPercent / 100.0;
+          // Calculate local progress dynamically based on course lessons status to ensure instant updates
+          final totalLessons = state.currentCourseLessons.length;
+          final completedLessonsCount = state.currentCourseLessons.where((l) {
+            final lessonProgress = state.currentCourseProgress.firstWhere(
+              (p) => p.lessonId == l.id,
+              orElse: () => UserLessonProgressModel(
+                id: 0,
+                userId: _userId,
+                lessonId: l.id,
+                status: 0,
+                lastPositionSeconds: 0,
+                attemptsCount: 0,
+                bestAccuracy: 0.0,
+                bestScore: 0.0,
+                totalTimeSeconds: 0,
+                xpEarned: 0,
+              ),
+            );
+            return lessonProgress.status == 2;
+          }).length;
+          
+          final calculatedProgressPercent = totalLessons > 0 
+              ? (completedLessonsCount / totalLessons) * 100.0 
+              : 0.0;
+          final progressFraction = calculatedProgressPercent / 100.0;
 
           // Find first uncompleted lesson
           LessonModel? nextLesson;
@@ -188,9 +200,9 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
           }
 
           String buttonText = 'Bắt đầu học';
-          if (enrollment.progressPercent > 0.0 && enrollment.progressPercent < 100.0) {
+          if (calculatedProgressPercent > 0.0 && calculatedProgressPercent < 100.0) {
             buttonText = 'Tiếp tục học';
-          } else if (enrollment.progressPercent >= 100.0) {
+          } else if (calculatedProgressPercent >= 100.0) {
             buttonText = 'Học lại';
           }
 
@@ -335,7 +347,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                                             text: TextSpan(
                                               children: [
                                                 TextSpan(
-                                                  text: '${enrollment.progressPercent.toInt()}% ',
+                                                  text: '${calculatedProgressPercent.toInt()}% ',
                                                   style: textTheme.headlineMedium?.copyWith(
                                                     fontWeight: FontWeight.bold,
                                                     color: Colors.white,
@@ -464,7 +476,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
 
                                     return Padding(
                                       padding: const EdgeInsets.only(bottom: 12.0),
-                                      child: _buildLessonCard(context, lesson, statusStr, textTheme),
+                                      child: _buildLessonCard(context, lesson, statusStr, textTheme, index),
                                     );
                                   }),
                                 const SizedBox(height: 16),
@@ -593,33 +605,10 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
     );
   }
 
-  Widget _buildLessonCard(BuildContext context, LessonModel lesson, String status, TextTheme textTheme) {
-    IconData leadingIcon;
-    Color iconColor;
-    Color borderSideColor = Colors.white.withOpacity(0.05);
-    String subtitleText = 'Chưa bắt đầu';
-
-    if (status == 'completed') {
-      leadingIcon = Icons.check_circle_rounded;
-      iconColor = AppTheme.primaryColor;
-      borderSideColor = AppTheme.primaryContainer.withOpacity(0.5);
-      subtitleText = 'Đã hoàn thành';
-    } else if (status == 'in_progress') {
-      leadingIcon = Icons.pending_rounded;
-      iconColor = AppTheme.secondaryColor;
-      borderSideColor = AppTheme.secondaryColor.withOpacity(0.5);
-      subtitleText = 'Đang học dở';
-    } else if (status == 'locked') {
-      leadingIcon = Icons.lock_rounded;
-      iconColor = AppTheme.onSurfaceVariant.withOpacity(0.5);
-      subtitleText = 'Đã bị khóa';
-    } else {
-      leadingIcon = Icons.play_arrow_rounded;
-      iconColor = AppTheme.onSurfaceVariant;
-      subtitleText = 'Chưa bắt đầu';
-    }
-
+  Widget _buildLessonCard(BuildContext context, LessonModel lesson, String status, TextTheme textTheme, int index) {
     final isLocked = status == 'locked';
+    const Color mintColor = Color(0xFF10B981);
+    const Color darkCardColor = Color(0xFF131A16);
 
     return GestureDetector(
       onTap: () {
@@ -643,55 +632,83 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
         opacity: isLocked ? 0.7 : 1.0,
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.06),
-            borderRadius: BorderRadius.circular(16),
-            border: Border(
-              left: BorderSide(color: iconColor, width: 4),
-              top: BorderSide(color: borderSideColor),
-              right: BorderSide(color: borderSideColor),
-              bottom: BorderSide(color: borderSideColor),
-            ),
+            color: darkCardColor,
+            borderRadius: BorderRadius.circular(16.0),
+            border: Border.all(color: Colors.white.withOpacity(0.04)),
           ),
           padding: const EdgeInsets.all(16.0),
           child: Row(
             children: [
+              // Left status circle/index
               Container(
-                width: 40,
-                height: 40,
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: iconColor.withOpacity(0.12),
+                  color: isLocked 
+                      ? Colors.white.withOpacity(0.04) 
+                      : (status == 'completed' 
+                          ? mintColor.withOpacity(0.15) 
+                          : mintColor.withOpacity(0.1)),
+                  shape: BoxShape.circle,
                 ),
-                child: Icon(leadingIcon, color: iconColor, size: 20),
+                child: Center(
+                  child: isLocked
+                      ? const Icon(Icons.lock_rounded, color: Color(0xFF94A3B8), size: 15)
+                      : (status == 'completed'
+                          ? const Icon(Icons.check_rounded, color: mintColor, size: 16)
+                          : Text(
+                              "${index + 1}",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: mintColor,
+                                fontSize: 13,
+                              ),
+                            )),
+                ),
               ),
               const SizedBox(width: 16),
+              
+              // Middle title and details
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       lesson.title,
-                      style: textTheme.headlineSmall?.copyWith(
+                      style: const TextStyle(
+                        color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
-                        color: Colors.white,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Thời lượng: ${lesson.estimatedMinutes} phút • $subtitleText',
-                      style: textTheme.bodyMedium?.copyWith(
+                      isLocked 
+                          ? "Bài học đã bị khóa" 
+                          : "Thời lượng: ${lesson.estimatedMinutes} phút • +${lesson.xpReward} XP",
+                      style: const TextStyle(
+                        color: Color(0xFF94A3B8),
                         fontSize: 11,
-                        color: AppTheme.onSurfaceVariant,
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 16),
+              
+              // Right Action Icon
               Icon(
-                isLocked ? Icons.lock_outline_rounded : Icons.play_circle_outline_rounded,
-                color: isLocked ? AppTheme.onSurfaceVariant : iconColor,
-                size: 22,
+                isLocked 
+                    ? Icons.lock_outline_rounded 
+                    : (status == 'completed' 
+                        ? Icons.check_circle_rounded 
+                        : Icons.play_circle_fill_rounded),
+                color: isLocked 
+                    ? const Color(0xFF94A3B8).withOpacity(0.5) 
+                    : mintColor,
+                size: 26,
               ),
             ],
           ),
