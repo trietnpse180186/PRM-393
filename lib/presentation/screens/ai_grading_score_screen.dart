@@ -18,6 +18,9 @@ class AiGradingScoreScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final learningState = context.read<LearningCubit>().state;
+    final currentIndex = learningState.currentCourseLessons.indexWhere((l) => l.id == lesson.id);
+    final isLastLesson = currentIndex == -1 || currentIndex == learningState.currentCourseLessons.length - 1;
 
     return Scaffold(
       appBar: AppBar(
@@ -200,7 +203,7 @@ class AiGradingScoreScreen extends StatelessWidget {
                         userId = authState.user.id;
                       }
 
-                      // Report completion to API and pop back to CourseDetails
+                      // Report completion to API
                       context.read<LearningCubit>().completeLesson(
                         userId: userId,
                         lessonId: lesson.id,
@@ -210,9 +213,12 @@ class AiGradingScoreScreen extends StatelessWidget {
                         xpEarned: lesson.xpReward,
                       );
 
-                      // Pop back twice: Score Screen, then Exercise Screen
-                      Navigator.pop(context); // Pops Score Screen
-                      Navigator.pop(context); // Pops Exercise Screen
+                      if (isLastLesson) {
+                        Navigator.pop(context, 'completed_course');
+                      } else {
+                        final nextLesson = learningState.currentCourseLessons[currentIndex + 1];
+                        Navigator.pop(context, nextLesson);
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,
@@ -228,7 +234,7 @@ class AiGradingScoreScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'TIẾP TỤC BÀI HỌC',
+                          isLastLesson ? 'HOÀN THÀNH KHÓA HỌC' : 'TIẾP TỤC BÀI HỌC',
                           style: textTheme.labelLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
@@ -236,7 +242,10 @@ class AiGradingScoreScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        const Icon(Icons.arrow_forward_rounded, size: 16),
+                        Icon(
+                          isLastLesson ? Icons.done_all_rounded : Icons.arrow_forward_rounded,
+                          size: 16,
+                        ),
                       ],
                     ),
                   ),

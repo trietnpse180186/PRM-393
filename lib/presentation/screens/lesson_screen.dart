@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:video_player/video_player.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/datasources/learning_remote_data_source.dart';
 import '../../data/models/lesson_model.dart';
 import '../../data/models/user_lesson_progress_model.dart';
 import '../bloc/auth/auth_bloc.dart';
@@ -22,9 +24,11 @@ class LessonScreen extends StatefulWidget {
 }
 
 class _LessonScreenState extends State<LessonScreen> {
-  bool _isPlaying = false;
-  double _videoProgress = 0.0; // Initial progress
-  Timer? _progressTimer;
+  VideoPlayerController? _controller;
+  bool _isVideoLoading = false;
+  bool _isVideoInitialized = false;
+  bool _hasVideoError = false;
+  bool _showControls = true;
   int _userId = 3;
 
   @override
@@ -38,34 +42,237 @@ class _LessonScreenState extends State<LessonScreen> {
       // Trigger start lesson progress update
       context.read<LearningCubit>().startLesson(_userId, widget.lesson.id);
     });
+
+    if (widget.lesson.videoMediaId != null) {
+      _loadAndInitVideo();
+    }
+  }
+
+  Future<void> _loadAndInitVideo() async {
+    if (!mounted) return;
+    setState(() {
+      _isVideoLoading = true;
+      _hasVideoError = false;
+    });
+
+    try {
+      final dataSource = context.read<LearningRemoteDataSource>();
+      final url = await dataSource.fetchVideoUrl(widget.lesson.videoMediaId!);
+      if (url != null && url.isNotEmpty) {
+        _controller = VideoPlayerController.networkUrl(Uri.parse(url));
+        await _controller!.initialize();
+        if (mounted) {
+          setState(() {
+            _isVideoInitialized = true;
+            _isVideoLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isVideoLoading = false;
+            _hasVideoError = true;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isVideoLoading = false;
+          _hasVideoError = true;
+        });
+      }
+    }
   }
 
   @override
   void dispose() {
-    _progressTimer?.cancel();
+    _controller?.dispose();
     super.dispose();
   }
 
   void _togglePlayPause() {
+    if (_controller == null || !_isVideoInitialized) return;
     setState(() {
-      _isPlaying = !_isPlaying;
+      if (_controller!.value.isPlaying) {
+        _controller!.pause();
+      } else {
+        _controller!.play();
+      }
     });
+  }
 
-    if (_isPlaying) {
-      _progressTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-        if (!mounted) return;
-        setState(() {
-          if (_videoProgress < 1.0) {
-            _videoProgress += 0.01; // Increment progress slowly
-          } else {
-            _isPlaying = false;
-            _progressTimer?.cancel();
-          }
-        });
-      });
-    } else {
-      _progressTimer?.cancel();
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return "$minutes:$seconds";
+  }
+
+  Widget _buildVideoPlayer() {
+    if (widget.lesson.videoMediaId == null) {
+      return Container(
+        color: Colors.black54,
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.video_camera_front_rounded, size: 48, color: AppTheme.primaryColor),
+              SizedBox(height: 8),
+              Text('Không có video cho bài học này', style: TextStyle(color: Colors.white70)),
+            ],
+          ),
+        ),
+      );
     }
+
+    if (_isVideoLoading) {
+      return Container(
+        color: Colors.black54,
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor)),
+              SizedBox(height: 12),
+              Text('Đang tải video...', style: TextStyle(color: Colors.white70, fontSize: 13)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_hasVideoError) {
+      return Container(
+        color: Colors.black54,
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline_rounded, size: 48, color: Colors.redAccent),
+              SizedBox(height: 8),
+              Text('Lỗi tải video từ server', style: TextStyle(color: Colors.white70)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (!_isVideoInitialized || _controller == null) {
+      return Container(
+        color: Colors.black54,
+        child: const Center(
+          child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor)),
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _showControls = !_showControls;
+        });
+      },
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          VideoPlayer(_controller!),
+          
+          // Controls overlay
+          AnimatedOpacity(
+            opacity: _showControls ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 300),
+            child: Container(
+              color: Colors.black.withOpacity(0.4),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Top Title Bar
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    alignment: Alignment.topLeft,
+                    child: Text(
+                      widget.lesson.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+
+                  // Center Play/Pause button
+                  Center(
+                    child: InkWell(
+                      onTap: _togglePlayPause,
+                      borderRadius: BorderRadius.circular(50),
+                      child: Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black.withOpacity(0.4),
+                          border: Border.all(color: Colors.white.withOpacity(0.2)),
+                        ),
+                        child: Icon(
+                          _controller!.value.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 38,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Bottom Controls
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      VideoProgressIndicator(
+                        _controller!,
+                        allowScrubbing: true,
+                        colors: const VideoProgressColors(
+                          playedColor: AppTheme.primaryColor,
+                          bufferedColor: Colors.white24,
+                          backgroundColor: Colors.white10,
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            ValueListenableBuilder(
+                              valueListenable: _controller!,
+                              builder: (context, VideoPlayerValue value, child) {
+                                return Text(
+                                  _formatDuration(value.position),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                );
+                              },
+                            ),
+                            Text(
+                              _formatDuration(_controller!.value.duration),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -122,7 +329,7 @@ class _LessonScreenState extends State<LessonScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Simulated Video Player Card
+                    // Video Player Card
                     AppTheme.glassPanel(
                       borderRadius: 16.0,
                       padding: EdgeInsets.zero,
@@ -130,72 +337,7 @@ class _LessonScreenState extends State<LessonScreen> {
                         borderRadius: BorderRadius.circular(16),
                         child: AspectRatio(
                           aspectRatio: 16 / 9,
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              // Video Thumbnail / Cover
-                              Image.network(
-                                'https://lh3.googleusercontent.com/aida-public/AB6AXuDz1zgTAlhnEhDVZHik5aw5H9sOE6LhECHPoc9tqkRwtB1ePx9_Ilsl8vqltdKac7pelbOoLganFfVJwP425EIMzBNmnoFVXPMmvINbuUYsi995ybK2NMKN9ave4REW7mNyC2TIbVg_i5q_fYz84d3eIPEY2L7_WedzURs4rXr-V29nxEwPHXVykO9lHZrBtTQqhSXy91VpbCGUdDZ50xwfT-S_EIONjz3eKIc22P3PBPl-Xri8Sp8NS_2NP1zRigitqebQ_iM69OI',
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) => Container(
-                                  color: Colors.black54,
-                                  child: const Center(
-                                    child: Icon(Icons.video_camera_front_rounded, size: 48, color: AppTheme.primaryColor),
-                                  ),
-                                ),
-                              ),
-                              // Play Overlay button
-                              Center(
-                                child: InkWell(
-                                  onTap: _togglePlayPause,
-                                  borderRadius: BorderRadius.circular(50),
-                                  child: Container(
-                                    width: 72,
-                                    height: 72,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: Colors.black.withOpacity(0.4),
-                                      border: Border.all(color: Colors.white.withOpacity(0.2)),
-                                      boxShadow: _isPlaying
-                                          ? [
-                                              BoxShadow(
-                                                color: AppTheme.primaryColor.withOpacity(0.2),
-                                                blurRadius: 15,
-                                                spreadRadius: 2,
-                                              )
-                                            ]
-                                          : null,
-                                    ),
-                                    child: Icon(
-                                      _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                                      color: Colors.white,
-                                      size: 44,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              // Progress bar slider
-                              Positioned(
-                                bottom: 0,
-                                left: 0,
-                                right: 0,
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-                                      child: LinearProgressIndicator(
-                                        value: _videoProgress,
-                                        minHeight: 6,
-                                        backgroundColor: Colors.white.withOpacity(0.12),
-                                        valueColor: const AlwaysStoppedAnimation(AppTheme.primaryColor),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
+                          child: _buildVideoPlayer(),
                         ),
                       ),
                     ),
@@ -294,13 +436,32 @@ class _LessonScreenState extends State<LessonScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           ElevatedButton(
-                            onPressed: () {
-                              Navigator.push(
+                            onPressed: () async {
+                              final result = await Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => AiGradingExerciseScreen(lesson: widget.lesson),
                                 ),
                               );
+
+                              if (!context.mounted || result == null) return;
+
+                              if (result is LessonModel) {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => LessonScreen(lesson: result),
+                                  ),
+                                );
+                              } else if (result == 'completed_course') {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Chúc mừng bạn đã hoàn thành khóa học!'),
+                                    backgroundColor: Color(0xFF10B981),
+                                  ),
+                                );
+                                Navigator.pop(context);
+                              }
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.primaryContainer,
