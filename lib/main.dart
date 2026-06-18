@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'core/network/dio_client.dart';
 import 'core/theme/app_theme.dart';
+import 'core/services/push_notification_service.dart';
 import 'data/datasources/auth_remote_data_source.dart';
 import 'data/datasources/learning_remote_data_source.dart';
 import 'presentation/bloc/auth/auth_bloc.dart';
@@ -10,9 +12,19 @@ import 'presentation/bloc/auth/auth_state.dart';
 import 'presentation/bloc/learning/learning_cubit.dart';
 import 'presentation/screens/welcome_screen.dart';
 import 'presentation/screens/home_screen.dart';
+import 'firebase_options.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Initialize Push Notification Service
+  final pushNotificationService = PushNotificationService();
+  await pushNotificationService.initialize();
   
   // Set up dependency injection / instances
   final dioClient = DioClient();
@@ -37,8 +49,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RepositoryProvider<LearningRemoteDataSource>.value(
-      value: learningRemoteDataSource,
+    return MultiRepositoryProvider(
+      providers: [
+        RepositoryProvider<AuthRemoteDataSource>.value(value: authRemoteDataSource),
+        RepositoryProvider<LearningRemoteDataSource>.value(value: learningRemoteDataSource),
+      ],
       child: MultiBlocProvider(
         providers: [
           BlocProvider<AuthBloc>(

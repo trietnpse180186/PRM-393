@@ -380,8 +380,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           const SizedBox(height: 24),
 
                           // Redirect link
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               Text(
                                 'Đã có tài khoản? ',

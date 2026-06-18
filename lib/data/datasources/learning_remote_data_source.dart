@@ -167,6 +167,34 @@ class LearningRemoteDataSource {
     } catch (_) {}
     return null;
   }
+
+  Future<int> fetchUserStreak(int userId) async {
+    try {
+      final response = await _dioClient.dio.get('/api/user_profiles/$userId');
+      if (response.statusCode == 200) {
+        final data = response.data as Map<String, dynamic>;
+        final streak = data['currentStreakDays'] ?? data['CurrentStreakDays'] ?? 0;
+        return streak as int;
+      }
+      return 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<int> fetchTotalCompletedWords(int userId) async {
+    try {
+      final enrollments = await fetchUserEnrollments(userId);
+      int count = 0;
+      for (final enrollment in enrollments) {
+        final progressList = await fetchUserProgress(userId, enrollment.courseId);
+        count += progressList.where((p) => p.status == 2).length;
+      }
+      return count;
+    } catch (_) {
+      return 0;
+    }
+  }
 }
 
 extension DateTimeExtension on DateTime {

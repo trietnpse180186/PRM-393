@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/datasources/auth_remote_data_source.dart';
+import '../bloc/auth/auth_bloc.dart';
+import '../bloc/auth/auth_event.dart';
+import 'welcome_screen.dart';
 
 class SettingScreen extends StatefulWidget {
+  final int userId;
   final String initialName;
   final String initialEmail;
   final String initialPhone;
 
   const SettingScreen({
     super.key,
+    required this.userId,
     required this.initialName,
     required this.initialEmail,
     required this.initialPhone,
@@ -33,6 +40,20 @@ class _SettingScreenState extends State<SettingScreen> {
     _nameController = TextEditingController(text: widget.initialName);
     _emailController = TextEditingController(text: widget.initialEmail);
     _phoneController = TextEditingController(text: widget.initialPhone);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadRealPhone());
+  }
+
+  void _loadRealPhone() async {
+    if (!mounted) return;
+    try {
+      final authRemoteDataSource = context.read<AuthRemoteDataSource>();
+      final realPhone = await authRemoteDataSource.getUserProfilePhone(widget.userId);
+      if (realPhone != null && mounted) {
+        setState(() {
+          _phoneController.text = realPhone;
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -43,10 +64,13 @@ class _SettingScreenState extends State<SettingScreen> {
     super.dispose();
   }
 
-  void _onSavePressed() {
+  void _onSavePressed() async {
     if (_formKey.currentState?.validate() ?? false) {
+      final messenger = ScaffoldMessenger.of(context);
+      final authBloc = context.read<AuthBloc>();
+
       // Show saving spinner snackbar
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Row(
             children: [
@@ -60,22 +84,292 @@ class _SettingScreenState extends State<SettingScreen> {
             ],
           ),
           backgroundColor: AppTheme.surfaceContainer,
+          duration: Duration(minutes: 5), // Keep open during async execution
         ),
       );
 
-      // Simulate API call
-      Future.delayed(const Duration(seconds: 1), () {
+      try {
+        final authRemoteDataSource = context.read<AuthRemoteDataSource>();
+        
+        await Future.wait([
+          authRemoteDataSource.updateUserInfo(widget.userId, _nameController.text.trim()),
+          authRemoteDataSource.updateUserProfilePhone(widget.userId, _phoneController.text.trim()),
+        ]);
+
         if (!mounted) return;
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
           const SnackBar(
-            content: Text('Đã lưu cài đặt tài khoản thành công!'),
+            content: Text('Đã cập nhật thông tin cá nhân thành công!'),
             backgroundColor: AppTheme.primaryContainer,
           ),
         );
+
+        // Refresh AuthBloc with updated cached info
+        authBloc.add(AuthCheckRequested());
+        
         Navigator.pop(context);
-      });
+      } catch (e) {
+        if (!mounted) return;
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Lỗi: ${e.toString()}'),
+            backgroundColor: const Color(0xFFE46C6C),
+          ),
+        );
+      }
     }
+  }
+
+  void _onChangePasswordPressed(BuildContext context) {
+    final formKey = GlobalKey<FormState>();
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    bool obscureCurrent = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppTheme.surfaceContainer,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: Colors.white.withOpacity(0.05)),
+              ),
+              title: const Text(
+                'Thay đổi mật khẩu',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              content: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: currentPasswordController,
+                        obscureText: obscureCurrent,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: InputDecoration(
+                          labelText: 'Mật khẩu hiện tại',
+                          labelStyle: const TextStyle(color: AppTheme.onSurfaceVariant, fontSize: 12),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureCurrent ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              color: AppTheme.onSurfaceVariant,
+                              size: 18,
+                            ),
+                            onPressed: () {
+                              setDialogState(() {
+                                obscureCurrent = !obscureCurrent;
+                              });
+                            },
+                          ),
+                        ),
+                        validator: (val) {
+                          if (val == null || val.isEmpty) {
+                            return 'Vui lòng nhập mật khẩu hiện tại';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: newPasswordController,
+                        obscureText: obscureNew,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: InputDecoration(
+                          labelText: 'Mật khẩu mới',
+                          labelStyle: const TextStyle(color: AppTheme.onSurfaceVariant, fontSize: 12),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureNew ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              color: AppTheme.onSurfaceVariant,
+                              size: 18,
+                            ),
+                            onPressed: () {
+                              setDialogState(() {
+                                obscureNew = !obscureNew;
+                              });
+                            },
+                          ),
+                        ),
+                        validator: (val) {
+                          if (val == null || val.isEmpty) {
+                            return 'Vui lòng nhập mật khẩu mới';
+                          }
+                          if (val.length < 6) {
+                            return 'Mật khẩu mới phải dài ít nhất 6 ký tự';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: confirmPasswordController,
+                        obscureText: obscureConfirm,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: InputDecoration(
+                          labelText: 'Xác nhận mật khẩu mới',
+                          labelStyle: const TextStyle(color: AppTheme.onSurfaceVariant, fontSize: 12),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              color: AppTheme.onSurfaceVariant,
+                              size: 18,
+                            ),
+                            onPressed: () {
+                              setDialogState(() {
+                                obscureConfirm = !obscureConfirm;
+                              });
+                            },
+                          ),
+                        ),
+                        validator: (val) {
+                          if (val == null || val.isEmpty) {
+                            return 'Vui lòng xác nhận mật khẩu mới';
+                          }
+                          if (val != newPasswordController.text) {
+                            return 'Mật khẩu xác nhận không trùng khớp';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    currentPasswordController.dispose();
+                    newPasswordController.dispose();
+                    confirmPasswordController.dispose();
+                    Navigator.pop(dialogContext);
+                  },
+                  child: const Text(
+                    'Hủy',
+                    style: TextStyle(color: AppTheme.onSurfaceVariant),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (formKey.currentState?.validate() ?? false) {
+                      final messenger = ScaffoldMessenger.of(context);
+                      final authRemoteDataSource = context.read<AuthRemoteDataSource>();
+
+                      Navigator.pop(dialogContext);
+                      
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Row(
+                            children: [
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)),
+                              ),
+                              SizedBox(width: 12),
+                              Text('Đang đổi mật khẩu...'),
+                            ],
+                          ),
+                          backgroundColor: AppTheme.surfaceContainer,
+                          duration: Duration(minutes: 5),
+                        ),
+                      );
+
+                      try {
+                        await authRemoteDataSource.changePassword(
+                          widget.userId,
+                          currentPasswordController.text,
+                          newPasswordController.text,
+                        );
+
+                        if (!mounted) return;
+                        messenger.hideCurrentSnackBar();
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('Đổi mật khẩu thành công!'),
+                            backgroundColor: AppTheme.primaryContainer,
+                          ),
+                        );
+                      } catch (e) {
+                        if (!mounted) return;
+                        messenger.hideCurrentSnackBar();
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text('Lỗi: ${e.toString()}'),
+                            backgroundColor: const Color(0xFFE46C6C),
+                          ),
+                        );
+                      } finally {
+                        currentPasswordController.dispose();
+                        newPasswordController.dispose();
+                        confirmPasswordController.dispose();
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: AppTheme.onPrimaryContainer,
+                  ),
+                  child: const Text('Thay đổi'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _onDeleteAccount(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: AppTheme.surfaceContainer,
+        title: const Text(
+          'Xóa tài khoản',
+          style: TextStyle(color: Color(0xFFE46C6C), fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'Hành động này không thể hoàn tác. Mọi tiến trình học tập, thống kê của bạn sẽ bị xóa vĩnh viễn khỏi hệ thống. Bạn có chắc chắn muốn tiếp tục?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Hủy', style: TextStyle(color: Colors.white70)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogCtx);
+              context.read<AuthBloc>().add(AuthDeleteAccountRequested(userId: widget.userId));
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                (route) => false,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE46C6C),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Xóa vĩnh viễn'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -146,14 +440,10 @@ class _SettingScreenState extends State<SettingScreen> {
                             const SizedBox(height: 16),
                             _buildTextField(
                               controller: _emailController,
-                              label: 'Email',
+                              label: 'Email (Không thể chỉnh sửa)',
                               hint: 'example@email.com',
                               keyboardType: TextInputType.emailAddress,
-                              validator: (val) {
-                                if (val == null || val.trim().isEmpty) return 'Vui lòng nhập email';
-                                if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(val.trim())) return 'Email không hợp lệ';
-                                return null;
-                              },
+                              enabled: false,
                             ),
                             const SizedBox(height: 16),
                             _buildTextField(
@@ -179,14 +469,7 @@ class _SettingScreenState extends State<SettingScreen> {
                               leading: const Icon(Icons.lock_reset_rounded, color: AppTheme.onSurfaceVariant, size: 20),
                               title: const Text('Đổi mật khẩu', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
                               trailing: const Icon(Icons.chevron_right_rounded, color: AppTheme.onSurfaceVariant, size: 20),
-                              onTap: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Tính năng đổi mật khẩu đang được xử lý.'),
-                                    backgroundColor: AppTheme.surfaceContainer,
-                                  ),
-                                );
-                              },
+                              onTap: () => _onChangePasswordPressed(context),
                             ),
                             Divider(color: Colors.white.withOpacity(0.05), height: 1),
                             SwitchListTile(
@@ -241,6 +524,33 @@ class _SettingScreenState extends State<SettingScreen> {
                               },
                             ),
                           ],
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+
+                      // Section: Vùng nguy hiểm
+                      _buildSectionHeader(Icons.report_problem_outlined, 'Vùng nguy hiểm', textTheme),
+                      const SizedBox(height: 12),
+                      AppTheme.glassPanel(
+                        padding: EdgeInsets.zero,
+                        child: ListTile(
+                          leading: const Icon(Icons.delete_forever_rounded, color: Color(0xFFE46C6C), size: 20),
+                          title: const Text(
+                            'Xóa tài khoản',
+                            style: TextStyle(
+                              color: Color(0xFFE46C6C),
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'Xóa vĩnh viễn tài khoản và dữ liệu học tập',
+                            style: TextStyle(
+                              color: AppTheme.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                          onTap: () => _onDeleteAccount(context),
                         ),
                       ),
                       const SizedBox(height: 36),
@@ -300,6 +610,7 @@ class _SettingScreenState extends State<SettingScreen> {
     required String hint,
     TextInputType keyboardType = TextInputType.text,
     String? Function(String?)? validator,
+    bool enabled = true,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -317,10 +628,16 @@ class _SettingScreenState extends State<SettingScreen> {
           controller: controller,
           keyboardType: keyboardType,
           validator: validator,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
+          enabled: enabled,
+          style: TextStyle(
+            color: enabled ? Colors.white : Colors.white60,
+            fontSize: 14,
+          ),
           decoration: InputDecoration(
             hintText: hint,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            filled: !enabled,
+            fillColor: enabled ? Colors.transparent : Colors.white.withOpacity(0.03),
           ),
         ),
       ],

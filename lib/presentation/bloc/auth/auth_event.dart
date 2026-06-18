@@ -35,3 +35,14 @@ class AuthRegisterRequested extends AuthEvent {
 }
 
 class AuthLogoutRequested extends AuthEvent {}
+
+class AuthGoogleLoginRequested extends AuthEvent {}
+
+class AuthDeleteAccountRequested extends AuthEvent {
+  final int userId;
+
+  const AuthDeleteAccountRequested({required this.userId});
+
+  @override
+  List<Object?> get props => [userId];
+}
