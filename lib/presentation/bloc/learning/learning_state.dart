@@ -14,6 +14,7 @@ class LearningState {
   final List<LessonModel> currentCourseLessons;
   final List<UserLessonProgressModel> currentCourseProgress;
   final LessonModel? activeLesson;
+  final int streakDays;
 
   LearningState({
     this.isLoading = false,
@@ -25,6 +26,7 @@ class LearningState {
     this.currentCourseLessons = const [],
     this.currentCourseProgress = const [],
     this.activeLesson,
+    this.streakDays = 0,
   });
 
   LearningState copyWith({
@@ -37,6 +39,7 @@ class LearningState {
     List<LessonModel>? currentCourseLessons,
     List<UserLessonProgressModel>? currentCourseProgress,
     LessonModel? activeLesson,
+    int? streakDays,
   }) {
     return LearningState(
       isLoading: isLoading ?? this.isLoading,
@@ -48,6 +51,7 @@ class LearningState {
       currentCourseLessons: currentCourseLessons ?? this.currentCourseLessons,
       currentCourseProgress: currentCourseProgress ?? this.currentCourseProgress,
       activeLesson: activeLesson ?? this.activeLesson,
+      streakDays: streakDays ?? this.streakDays,
     );
   }
 }
