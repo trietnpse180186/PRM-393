@@ -12,18 +12,21 @@ class LearningRepositoryImpl implements LearningRepository {
   LearningRepositoryImpl(this.remoteDataSource);
 
   @override
-  Future<List<CourseCategoryEntity>> fetchCategories() {
-    return remoteDataSource.fetchCategories();
+  Future<List<CourseCategoryEntity>> fetchCategories() async {
+    final models = await remoteDataSource.fetchCategories();
+    return models.map<CourseCategoryEntity>((e) => e).toList();
   }
 
   @override
-  Future<List<CourseEntity>> fetchCourses() {
-    return remoteDataSource.fetchCourses();
+  Future<List<CourseEntity>> fetchCourses() async {
+    final models = await remoteDataSource.fetchCourses();
+    return models.map<CourseEntity>((e) => e).toList();
   }
 
   @override
-  Future<List<LessonEntity>> fetchLessons() {
-    return remoteDataSource.fetchLessons();
+  Future<List<LessonEntity>> fetchLessons() async {
+    final models = await remoteDataSource.fetchLessons();
+    return models.map<LessonEntity>((e) => e).toList();
   }
 
   @override
@@ -32,13 +35,15 @@ class LearningRepositoryImpl implements LearningRepository {
   }
 
   @override
-  Future<List<EnrollmentEntity>> fetchUserEnrollments(int userId) {
-    return remoteDataSource.fetchUserEnrollments(userId);
+  Future<List<EnrollmentEntity>> fetchUserEnrollments(int userId) async {
+    final models = await remoteDataSource.fetchUserEnrollments(userId);
+    return models.map<EnrollmentEntity>((e) => e).toList();
   }
 
   @override
-  Future<List<UserLessonProgressEntity>> fetchUserProgress(int userId, int courseId) {
-    return remoteDataSource.fetchUserProgress(userId, courseId);
+  Future<List<UserLessonProgressEntity>> fetchUserProgress(int userId, int courseId) async {
+    final models = await remoteDataSource.fetchUserProgress(userId, courseId);
+    return models.map<UserLessonProgressEntity>((e) => e).toList();
   }
 
   @override
@@ -96,7 +101,11 @@ class LearningRepositoryImpl implements LearningRepository {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> fetchCompletedLessonsWithProgress(int userId) {
-    return remoteDataSource.fetchCompletedLessonsWithProgress(userId);
+  Future<List<Map<String, dynamic>>> fetchCompletedLessonsWithProgress(int userId) async {
+    final history = await remoteDataSource.fetchCompletedLessonsWithProgress(userId);
+    return history.map((item) => {
+      'progress': item['progress'] as UserLessonProgressEntity,
+      'lesson': item['lesson'] as LessonEntity,
+    }).toList();
   }
 }
