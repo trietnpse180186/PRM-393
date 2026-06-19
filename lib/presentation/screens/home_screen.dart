@@ -9,6 +9,7 @@ import 'library_screen.dart';
 import 'profile_screen.dart';
 import 'notification_screen.dart';
 import 'course_details_screen.dart';
+import 'completed_words_history_screen.dart';
 import '../../data/models/enrollment_model.dart';
 import '../bloc/learning/learning_cubit.dart';
 import '../bloc/learning/learning_state.dart';
@@ -110,6 +111,15 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.history_rounded, color: AppTheme.onSurfaceVariant),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CompletedWordsHistoryScreen()),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.notifications_outlined, color: AppTheme.onSurfaceVariant),
             onPressed: () {
               Navigator.push(
@@ -148,6 +158,15 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.history_rounded, color: AppTheme.onSurfaceVariant),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CompletedWordsHistoryScreen()),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.notifications_outlined, color: AppTheme.onSurfaceVariant),
             onPressed: () {
               Navigator.push(
@@ -181,6 +200,15 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.history_rounded, color: AppTheme.onSurfaceVariant),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CompletedWordsHistoryScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.notifications_outlined, color: AppTheme.onSurfaceVariant),
             onPressed: () {
@@ -412,9 +440,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               children: [
                                 Column(
                                   children: [
-                                    const Text(
-                                      '12',
-                                      style: TextStyle(
+                                    Text(
+                                      '${state.streakDays}',
+                                      style: const TextStyle(
                                         fontSize: 20,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.white,

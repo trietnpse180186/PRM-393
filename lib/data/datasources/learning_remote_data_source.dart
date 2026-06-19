@@ -195,6 +195,62 @@ class LearningRemoteDataSource {
       return 0;
     }
   }
+
+  Future<void> updateUserStreak(int userId, int newStreak) async {
+    try {
+      final getResponse = await _dioClient.dio.get('/api/user_profiles/$userId');
+      if (getResponse.statusCode == 200) {
+        final currentData = getResponse.data as Map<String, dynamic>;
+        
+        final putResponse = await _dioClient.dio.put(
+          '/api/user_profiles/$userId',
+          data: {
+            ...currentData,
+            'currentStreakDays': newStreak,
+            'CurrentStreakDays': newStreak,
+          },
+        );
+        if (putResponse.statusCode != 200) {
+          throw Exception('Failed to update streak in profile.');
+        }
+      }
+    } catch (e) {
+      print("Error updating user streak: $e");
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchCompletedLessonsWithProgress(int userId) async {
+    try {
+      final enrollments = await fetchUserEnrollments(userId);
+      final allLessons = await fetchLessons();
+      final List<Map<String, dynamic>> completedLessons = [];
+      
+      for (final enrollment in enrollments) {
+        final progressList = await fetchUserProgress(userId, enrollment.courseId);
+        final completedProgress = progressList.where((p) => p.status == 2);
+        
+        for (final prog in completedProgress) {
+          final lessonIndex = allLessons.indexWhere((l) => l.id == prog.lessonId);
+          if (lessonIndex != -1) {
+            completedLessons.add({
+              'progress': prog,
+              'lesson': allLessons[lessonIndex],
+            });
+          }
+        }
+      }
+      // Sort by completion time (newest first)
+      completedLessons.sort((a, b) {
+        final dateA = (a['progress'] as UserLessonProgressModel).completedAt ?? '';
+        final dateB = (b['progress'] as UserLessonProgressModel).completedAt ?? '';
+        return dateB.compareTo(dateA);
+      });
+      return completedLessons;
+    } catch (e) {
+      print("Error fetching completed lessons with progress: $e");
+      return [];
+    }
+  }
 }
 
 extension DateTimeExtension on DateTime {

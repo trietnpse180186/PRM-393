@@ -14,6 +14,7 @@ class LearningCubit extends Cubit<LearningState> {
       final courses = await _dataSource.fetchCourses();
       final enrollments = await _dataSource.fetchUserEnrollments(userId);
       final allLessons = await _dataSource.fetchLessons();
+      final streakDays = await _dataSource.fetchUserStreak(userId);
 
       emit(state.copyWith(
         isLoading: false,
@@ -21,6 +22,7 @@ class LearningCubit extends Cubit<LearningState> {
         courses: courses,
         enrollments: enrollments,
         allLessons: allLessons,
+        streakDays: streakDays,
       ));
     } catch (e) {
       emit(state.copyWith(
@@ -49,12 +51,14 @@ class LearningCubit extends Cubit<LearningState> {
       // Fetch progress
       final progress = await _dataSource.fetchUserProgress(userId, courseId);
       final enrollments = await _dataSource.fetchUserEnrollments(userId);
+      final streakDays = await _dataSource.fetchUserStreak(userId);
 
       emit(state.copyWith(
         isLoading: false,
         currentCourseLessons: courseLessons,
         currentCourseProgress: progress,
         enrollments: enrollments,
+        streakDays: streakDays,
       ));
     } catch (e) {
       emit(state.copyWith(
@@ -102,6 +106,18 @@ class LearningCubit extends Cubit<LearningState> {
   }) async {
     emit(state.copyWith(isLoading: true));
     try {
+      // Check if this is a new completion (was not status == 2 before)
+      bool isNewCompletion = true;
+      try {
+        final currentProgressList = await _dataSource.fetchUserProgress(userId, courseId);
+        final lessonProgressIndex = currentProgressList.indexWhere((p) => p.lessonId == lessonId);
+        if (lessonProgressIndex != -1) {
+          isNewCompletion = currentProgressList[lessonProgressIndex].status != 2;
+        }
+      } catch (_) {
+        // Fallback to true if we cannot check
+      }
+
       await _dataSource.upsertLessonProgress(
         userId: userId,
         lessonId: lessonId,
@@ -112,14 +128,22 @@ class LearningCubit extends Cubit<LearningState> {
         xpEarned: xpEarned,
       );
 
-      // Refresh enrollments, catalog, and progress
+      // Increment streak if it's a new completion
+      if (isNewCompletion) {
+        final currentStreak = await _dataSource.fetchUserStreak(userId);
+        await _dataSource.updateUserStreak(userId, currentStreak + 1);
+      }
+
+      // Refresh enrollments, progress, and streak
       final enrollments = await _dataSource.fetchUserEnrollments(userId);
       final progress = await _dataSource.fetchUserProgress(userId, courseId);
+      final streakDays = await _dataSource.fetchUserStreak(userId);
 
       emit(state.copyWith(
         isLoading: false,
         enrollments: enrollments,
         currentCourseProgress: progress,
+        streakDays: streakDays,
       ));
     } catch (e) {
       emit(state.copyWith(

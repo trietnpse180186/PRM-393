@@ -5,6 +5,7 @@ import '../../data/datasources/learning_remote_data_source.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/auth/auth_event.dart';
 import '../bloc/auth/auth_state.dart';
+import '../bloc/learning/learning_cubit.dart';
 import 'welcome_screen.dart';
 import 'setting_screen.dart';
 import 'support_screen.dart';
@@ -293,74 +294,82 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(width: 12),
                     // Completed Words Card (replaces Mastery Card)
-                    Expanded(
-                      child: AppTheme.glassPanel(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Builder(
+                      builder: (cardCtx) {
+                        final totalLessons = cardCtx.watch<LearningCubit>().state.allLessons.length;
+                        final double progressRatio = totalLessons > 0 ? (_completedWords / totalLessons) : 0.0;
+                        final int percentage = (progressRatio * 100).toInt();
+
+                        return Expanded(
+                          child: AppTheme.glassPanel(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Độ thuần phục',
+                                      style: textTheme.labelLarge?.copyWith(
+                                        fontSize: 11,
+                                        color: AppTheme.onSurfaceVariant,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const Icon(
+                                      Icons.school_rounded,
+                                      color: AppTheme.secondaryColor,
+                                      size: 24,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                RichText(
+                                  text: TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: '$_completedWords',
+                                        style: textTheme.headlineLarge?.copyWith(
+                                          fontSize: 28,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.secondaryColor,
+                                        ),
+                                      ),
+                                      TextSpan(
+                                        text: ' / $totalLessons từ',
+                                        style: textTheme.bodyMedium?.copyWith(
+                                          fontSize: 13,
+                                          color: AppTheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: progressRatio,
+                                    minHeight: 6,
+                                    backgroundColor: Colors.white10,
+                                    valueColor: const AlwaysStoppedAnimation(AppTheme.secondaryColor),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
                                 Text(
-                                  'Từ đã học',
-                                  style: textTheme.labelLarge?.copyWith(
+                                  percentage > 0 ? 'Tuyệt vời! $percentage% 🌟' : 'Bắt đầu học thôi! 🚀',
+                                  style: textTheme.bodyMedium?.copyWith(
                                     fontSize: 11,
-                                    color: AppTheme.onSurfaceVariant,
+                                    color: AppTheme.secondaryColor,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                const Icon(
-                                  Icons.menu_book_rounded,
-                                  color: AppTheme.secondaryColor,
-                                  size: 24,
-                                ),
                               ],
                             ),
-                            const SizedBox(height: 12),
-                            RichText(
-                              text: TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text: '$_completedWords ',
-                                    style: textTheme.headlineLarge?.copyWith(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.secondaryColor,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: 'từ',
-                                    style: textTheme.bodyMedium?.copyWith(
-                                      fontSize: 13,
-                                      color: AppTheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: _completedWords > 0 ? 1.0 : 0.0,
-                                minHeight: 6,
-                                backgroundColor: Colors.white10,
-                                valueColor: const AlwaysStoppedAnimation(AppTheme.secondaryColor),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              _completedWords > 0 ? 'Tuyệt vời! 🌟' : 'Bắt đầu học thôi! 🚀',
-                              style: textTheme.bodyMedium?.copyWith(
-                                fontSize: 11,
-                                color: AppTheme.secondaryColor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
