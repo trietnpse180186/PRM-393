@@ -1,36 +1,22 @@
-class LessonModel {
-  final int id;
-  final int courseId;
-  final int moduleId;
-  final String title;
-  final String slug;
-  final String? shortDescription;
-  final String? objectiveText;
-  final int? coverMediaId;
-  final int? videoMediaId;
-  final String? videoUrl;
-  final String lessonType;
-  final String difficultyLevel;
-  final int estimatedMinutes;
-  final int xpReward;
-  final int sortOrder;
+import '../../domain/entities/lesson_entity.dart';
 
+class LessonModel extends LessonEntity {
   LessonModel({
-    required this.id,
-    required this.courseId,
-    required this.moduleId,
-    required this.title,
-    required this.slug,
-    this.shortDescription,
-    this.objectiveText,
-    this.coverMediaId,
-    this.videoMediaId,
-    this.videoUrl,
-    required this.lessonType,
-    required this.difficultyLevel,
-    required this.estimatedMinutes,
-    required this.xpReward,
-    required this.sortOrder,
+    required super.id,
+    required super.courseId,
+    required super.moduleId,
+    required super.title,
+    required super.slug,
+    super.shortDescription,
+    super.objectiveText,
+    super.coverMediaId,
+    super.videoMediaId,
+    super.videoUrl,
+    required super.lessonType,
+    required super.difficultyLevel,
+    required super.estimatedMinutes,
+    required super.xpReward,
+    required super.sortOrder,
   });
 
   factory LessonModel.fromJson(Map<String, dynamic> json) {

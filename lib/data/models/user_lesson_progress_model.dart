@@ -1,30 +1,19 @@
-class UserLessonProgressModel {
-  final int id;
-  final int userId;
-  final int lessonId;
-  final int status; // 0 = NotStarted, 1 = InProgress, 2 = Completed
-  final String? startedAt;
-  final String? completedAt;
-  final int lastPositionSeconds;
-  final int attemptsCount;
-  final double bestAccuracy;
-  final double bestScore;
-  final int totalTimeSeconds;
-  final int xpEarned;
+import '../../domain/entities/user_lesson_progress_entity.dart';
 
+class UserLessonProgressModel extends UserLessonProgressEntity {
   UserLessonProgressModel({
-    required this.id,
-    required this.userId,
-    required this.lessonId,
-    required this.status,
-    this.startedAt,
-    this.completedAt,
-    required this.lastPositionSeconds,
-    required this.attemptsCount,
-    required this.bestAccuracy,
-    required this.bestScore,
-    required this.totalTimeSeconds,
-    required this.xpEarned,
+    required super.id,
+    required super.userId,
+    required super.lessonId,
+    required super.status,
+    super.startedAt,
+    super.completedAt,
+    required super.lastPositionSeconds,
+    required super.attemptsCount,
+    required super.bestAccuracy,
+    required super.bestScore,
+    required super.totalTimeSeconds,
+    required super.xpEarned,
   });
 
   factory UserLessonProgressModel.fromJson(Map<String, dynamic> json) {

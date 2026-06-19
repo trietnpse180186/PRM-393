@@ -1,28 +1,41 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../data/datasources/learning_remote_data_source.dart';
+import '../../../domain/usecases/learning/load_catalog_usecase.dart';
+import '../../../domain/usecases/learning/load_course_details_usecase.dart';
+import '../../../domain/usecases/learning/load_lesson_details_usecase.dart';
+import '../../../domain/usecases/learning/start_lesson_usecase.dart';
+import '../../../domain/usecases/learning/complete_lesson_usecase.dart';
+import '../../../domain/usecases/learning/enroll_in_course_usecase.dart';
 import 'learning_state.dart';
 
 class LearningCubit extends Cubit<LearningState> {
-  final LearningRemoteDataSource _dataSource;
+  final LoadCatalogUseCase loadCatalogUseCase;
+  final LoadCourseDetailsUseCase loadCourseDetailsUseCase;
+  final LoadLessonDetailsUseCase loadLessonDetailsUseCase;
+  final StartLessonUseCase startLessonUseCase;
+  final CompleteLessonUseCase completeLessonUseCase;
+  final EnrollInCourseUseCase enrollInCourseUseCase;
 
-  LearningCubit(this._dataSource) : super(LearningState());
+  LearningCubit({
+    required this.loadCatalogUseCase,
+    required this.loadCourseDetailsUseCase,
+    required this.loadLessonDetailsUseCase,
+    required this.startLessonUseCase,
+    required this.completeLessonUseCase,
+    required this.enrollInCourseUseCase,
+  }) : super(LearningState());
 
   Future<void> loadCatalog(int userId) async {
     emit(state.copyWith(isLoading: true));
     try {
-      final categories = await _dataSource.fetchCategories();
-      final courses = await _dataSource.fetchCourses();
-      final enrollments = await _dataSource.fetchUserEnrollments(userId);
-      final allLessons = await _dataSource.fetchLessons();
-      final streakDays = await _dataSource.fetchUserStreak(userId);
+      final catalogData = await loadCatalogUseCase(userId);
 
       emit(state.copyWith(
         isLoading: false,
-        categories: categories,
-        courses: courses,
-        enrollments: enrollments,
-        allLessons: allLessons,
-        streakDays: streakDays,
+        categories: catalogData.categories,
+        courses: catalogData.courses,
+        enrollments: catalogData.enrollments,
+        allLessons: catalogData.allLessons,
+        streakDays: catalogData.streakDays,
       ));
     } catch (e) {
       emit(state.copyWith(
@@ -35,30 +48,14 @@ class LearningCubit extends Cubit<LearningState> {
   Future<void> loadCourseDetails(int userId, int courseId) async {
     emit(state.copyWith(isLoading: true));
     try {
-      // Fetch all lessons and filter by courseId
-      final allLessons = await _dataSource.fetchLessons();
-      print("learning_cubit: Loaded ${allLessons.length} lessons from API.");
-      for (final l in allLessons) {
-        print("learning_cubit: Lesson ID: ${l.id}, Title: ${l.title}, CourseId: ${l.courseId}");
-      }
-      
-      final courseLessons = allLessons.where((l) => l.courseId == courseId).toList();
-      print("learning_cubit: Filtered ${courseLessons.length} lessons for Course ID $courseId: ${courseLessons.map((l) => l.title).toList()}");
-      
-      // Sort lessons by sortOrder
-      courseLessons.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-
-      // Fetch progress
-      final progress = await _dataSource.fetchUserProgress(userId, courseId);
-      final enrollments = await _dataSource.fetchUserEnrollments(userId);
-      final streakDays = await _dataSource.fetchUserStreak(userId);
+      final courseDetailsData = await loadCourseDetailsUseCase(userId, courseId);
 
       emit(state.copyWith(
         isLoading: false,
-        currentCourseLessons: courseLessons,
-        currentCourseProgress: progress,
-        enrollments: enrollments,
-        streakDays: streakDays,
+        currentCourseLessons: courseDetailsData.courseLessons,
+        currentCourseProgress: courseDetailsData.progress,
+        enrollments: courseDetailsData.enrollments,
+        streakDays: courseDetailsData.streakDays,
       ));
     } catch (e) {
       emit(state.copyWith(
@@ -71,7 +68,7 @@ class LearningCubit extends Cubit<LearningState> {
   Future<void> loadLessonDetails(int lessonId) async {
     emit(state.copyWith(isLoading: true));
     try {
-      final lessonDetails = await _dataSource.fetchLessonDetails(lessonId);
+      final lessonDetails = await loadLessonDetailsUseCase(lessonId);
       emit(state.copyWith(
         isLoading: false,
         activeLesson: lessonDetails,
@@ -86,11 +83,7 @@ class LearningCubit extends Cubit<LearningState> {
 
   Future<void> startLesson(int userId, int lessonId) async {
     try {
-      await _dataSource.upsertLessonProgress(
-        userId: userId,
-        lessonId: lessonId,
-        status: 1, // InProgress
-      );
+      await startLessonUseCase(userId, lessonId);
     } catch (e) {
       // Fail silently in background
     }
@@ -106,44 +99,24 @@ class LearningCubit extends Cubit<LearningState> {
   }) async {
     emit(state.copyWith(isLoading: true));
     try {
-      // Check if this is a new completion (was not status == 2 before)
-      bool isNewCompletion = true;
-      try {
-        final currentProgressList = await _dataSource.fetchUserProgress(userId, courseId);
-        final lessonProgressIndex = currentProgressList.indexWhere((p) => p.lessonId == lessonId);
-        if (lessonProgressIndex != -1) {
-          isNewCompletion = currentProgressList[lessonProgressIndex].status != 2;
-        }
-      } catch (_) {
-        // Fallback to true if we cannot check
-      }
-
-      await _dataSource.upsertLessonProgress(
+      // Complete lesson using use case, which encapsulates the entire streak calculation logic
+      await completeLessonUseCase(
         userId: userId,
         lessonId: lessonId,
-        status: 2, // Completed
-        completedAt: DateTime.now().toUtc().toIso8601String(),
-        bestAccuracy: accuracy,
-        bestScore: score,
+        courseId: courseId,
+        accuracy: accuracy,
+        score: score,
         xpEarned: xpEarned,
       );
 
-      // Increment streak if it's a new completion
-      if (isNewCompletion) {
-        final currentStreak = await _dataSource.fetchUserStreak(userId);
-        await _dataSource.updateUserStreak(userId, currentStreak + 1);
-      }
-
-      // Refresh enrollments, progress, and streak
-      final enrollments = await _dataSource.fetchUserEnrollments(userId);
-      final progress = await _dataSource.fetchUserProgress(userId, courseId);
-      final streakDays = await _dataSource.fetchUserStreak(userId);
+      // Reload the current details to update state
+      final courseDetailsData = await loadCourseDetailsUseCase(userId, courseId);
 
       emit(state.copyWith(
         isLoading: false,
-        enrollments: enrollments,
-        currentCourseProgress: progress,
-        streakDays: streakDays,
+        enrollments: courseDetailsData.enrollments,
+        currentCourseProgress: courseDetailsData.progress,
+        streakDays: courseDetailsData.streakDays,
       ));
     } catch (e) {
       emit(state.copyWith(
@@ -156,12 +129,14 @@ class LearningCubit extends Cubit<LearningState> {
   Future<void> enrollInCourse(int userId, int courseId) async {
     emit(state.copyWith(isLoading: true));
     try {
-      await _dataSource.enrollInCourse(userId, courseId);
-      final enrollments = await _dataSource.fetchUserEnrollments(userId);
+      await enrollInCourseUseCase(userId, courseId);
+      
+      // Reload details or catalog to refresh enrollments
+      final catalogData = await loadCatalogUseCase(userId);
       
       emit(state.copyWith(
         isLoading: false,
-        enrollments: enrollments,
+        enrollments: catalogData.enrollments,
       ));
     } catch (e) {
       emit(state.copyWith(

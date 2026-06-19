@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/course_model.dart';
-import '../../data/models/lesson_model.dart';
-import '../../data/models/user_lesson_progress_model.dart';
+import '../../domain/entities/lesson_entity.dart';
+import '../../domain/entities/user_lesson_progress_entity.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/auth/auth_state.dart';
 import '../bloc/learning/learning_cubit.dart';
@@ -150,7 +150,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
           final completedLessonsCount = state.currentCourseLessons.where((l) {
             final lessonProgress = state.currentCourseProgress.firstWhere(
               (p) => p.lessonId == l.id,
-              orElse: () => UserLessonProgressModel(
+              orElse: () => UserLessonProgressEntity(
                 id: 0,
                 userId: _userId,
                 lessonId: l.id,
@@ -172,12 +172,12 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
           final progressFraction = calculatedProgressPercent / 100.0;
 
           // Find first uncompleted lesson
-          LessonModel? nextLesson;
+          LessonEntity? nextLesson;
           for (int i = 0; i < state.currentCourseLessons.length; i++) {
             final lesson = state.currentCourseLessons[i];
             final prog = state.currentCourseProgress.firstWhere(
               (p) => p.lessonId == lesson.id,
-              orElse: () => UserLessonProgressModel(
+              orElse: () => UserLessonProgressEntity(
                 id: 0,
                 userId: _userId,
                 lessonId: lesson.id,
@@ -431,7 +431,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                                       final prevLesson = state.currentCourseLessons[index - 1];
                                       final prevProg = state.currentCourseProgress.firstWhere(
                                         (p) => p.lessonId == prevLesson.id,
-                                        orElse: () => UserLessonProgressModel(
+                                        orElse: () => UserLessonProgressEntity(
                                           id: 0,
                                           userId: _userId,
                                           lessonId: prevLesson.id,
@@ -450,7 +450,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                                     // Get current lesson progress
                                     final lessonProgress = state.currentCourseProgress.firstWhere(
                                       (p) => p.lessonId == lesson.id,
-                                      orElse: () => UserLessonProgressModel(
+                                      orElse: () => UserLessonProgressEntity(
                                         id: 0,
                                         userId: _userId,
                                         lessonId: lesson.id,
@@ -605,7 +605,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
     );
   }
 
-  Widget _buildLessonCard(BuildContext context, LessonModel lesson, String status, TextTheme textTheme, int index) {
+  Widget _buildLessonCard(BuildContext context, LessonEntity lesson, String status, TextTheme textTheme, int index) {
     final isLocked = status == 'locked';
     const Color mintColor = Color(0xFF10B981);
     const Color darkCardColor = Color(0xFF131A16);

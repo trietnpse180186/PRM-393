@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/app_theme.dart';
-import '../../data/models/lesson_model.dart';
+import '../../domain/entities/lesson_entity.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/auth/auth_state.dart';
 import '../bloc/learning/learning_cubit.dart';
 import 'ai_grading_exercise_screen.dart';
 
 class AiGradingScoreScreen extends StatelessWidget {
-  final LessonModel lesson;
+  final LessonEntity lesson;
 
   const AiGradingScoreScreen({
     super.key,

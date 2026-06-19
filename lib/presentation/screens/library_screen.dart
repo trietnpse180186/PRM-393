@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/app_theme.dart';
-import '../../data/models/course_category_model.dart';
-import '../../data/models/course_model.dart';
-import '../../data/models/lesson_model.dart';
+import '../../domain/entities/course_category_entity.dart';
+import '../../domain/entities/course_entity.dart';
+import '../../domain/entities/lesson_entity.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/auth/auth_state.dart';
 import '../bloc/learning/learning_cubit.dart';
@@ -96,9 +96,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   void _showCoursesBottomSheet(
     BuildContext context,
-    CourseCategoryModel category,
-    List<CourseModel> categoryCourses,
-    List<LessonModel> allLessons,
+    CourseCategoryEntity category,
+    List<CourseEntity> categoryCourses,
+    List<LessonEntity> allLessons,
   ) {
     showModalBottomSheet(
       context: context,
@@ -288,9 +288,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Widget _buildCategoryCard(
-    CourseCategoryModel item,
-    List<CourseModel> allCourses,
-    List<LessonModel> allLessons,
+    CourseCategoryEntity item,
+    List<CourseEntity> allCourses,
+    List<LessonEntity> allLessons,
     TextTheme textTheme,
   ) {
     final visuals = CategoryVisuals.fromCategory(item.slug);

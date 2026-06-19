@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../data/datasources/gesture_data_source.dart';
+import '../../domain/usecases/gesture/predict_gesture_usecase.dart';
+import '../../domain/usecases/gesture/translate_sentence_usecase.dart';
 
 // --- Events ---
 abstract class GestureEvent {}
@@ -51,7 +52,8 @@ class GestureFailure extends GestureState {
 
 // --- Bloc ---
 class GestureBloc extends Bloc<GestureEvent, GestureState> {
-  final GestureDataSource _gestureDataSource;
+  final PredictGestureUseCase predictGestureUseCase;
+  final TranslateSentenceUseCase translateSentenceUseCase;
   
   final List<List<double>> _frameBuffer = [];
   final List<String> _recognizedWords = [];
@@ -60,7 +62,10 @@ class GestureBloc extends Bloc<GestureEvent, GestureState> {
   static const int targetFrameCount = 50;
   static const double confidenceThreshold = 0.95; // Tăng ngưỡng tự tin lên 95% đồng bộ với Web
 
-  GestureBloc(this._gestureDataSource) : super(GestureInitial()) {
+  GestureBloc({
+    required this.predictGestureUseCase,
+    required this.translateSentenceUseCase,
+  }) : super(GestureInitial()) {
     on<GestureSessionReset>((event, emit) {
       _frameBuffer.clear();
       _recognizedWords.clear();
@@ -103,7 +108,7 @@ class GestureBloc extends Bloc<GestureEvent, GestureState> {
         emit(GestureBufferUpdating(_frameBuffer.length, List.from(_recognizedWords)));
 
         try {
-          final result = await _gestureDataSource.predictGesture(payload);
+          final result = await predictGestureUseCase(payload);
           final word = (result['word'] ?? result['label'] ?? '') as String;
           final confidence = (result['confidence'] ?? 0.0) as double;
 
@@ -140,7 +145,7 @@ class GestureBloc extends Bloc<GestureEvent, GestureState> {
       emit(GestureBufferUpdating(0, List.from(_recognizedWords)));
 
       try {
-        final sentence = await _gestureDataSource.translateSentence(_recognizedWords);
+        final sentence = await translateSentenceUseCase(_recognizedWords);
         emit(GestureTranslationSuccess(sentence, List.from(_recognizedWords)));
       } catch (e) {
         emit(GestureFailure(e.toString().replaceAll('Exception: ', '')));

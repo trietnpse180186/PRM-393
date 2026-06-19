@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/app_theme.dart';
-import '../../data/datasources/auth_remote_data_source.dart';
+import '../../domain/usecases/auth/get_user_profile_phone_usecase.dart';
+import '../../domain/usecases/auth/update_user_info_usecase.dart';
+import '../../domain/usecases/auth/update_user_profile_phone_usecase.dart';
+import '../../domain/usecases/auth/change_password_usecase.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/auth/auth_event.dart';
 import 'welcome_screen.dart';
@@ -46,8 +49,8 @@ class _SettingScreenState extends State<SettingScreen> {
   void _loadRealPhone() async {
     if (!mounted) return;
     try {
-      final authRemoteDataSource = context.read<AuthRemoteDataSource>();
-      final realPhone = await authRemoteDataSource.getUserProfilePhone(widget.userId);
+      final getUserProfilePhoneUseCase = context.read<GetUserProfilePhoneUseCase>();
+      final realPhone = await getUserProfilePhoneUseCase(widget.userId);
       if (realPhone != null && mounted) {
         setState(() {
           _phoneController.text = realPhone;
@@ -89,11 +92,12 @@ class _SettingScreenState extends State<SettingScreen> {
       );
 
       try {
-        final authRemoteDataSource = context.read<AuthRemoteDataSource>();
+        final updateUserInfoUseCase = context.read<UpdateUserInfoUseCase>();
+        final updateUserProfilePhoneUseCase = context.read<UpdateUserProfilePhoneUseCase>();
         
         await Future.wait([
-          authRemoteDataSource.updateUserInfo(widget.userId, _nameController.text.trim()),
-          authRemoteDataSource.updateUserProfilePhone(widget.userId, _phoneController.text.trim()),
+          updateUserInfoUseCase(widget.userId, _nameController.text.trim()),
+          updateUserProfilePhoneUseCase(widget.userId, _phoneController.text.trim()),
         ]);
 
         if (!mounted) return;
@@ -266,7 +270,7 @@ class _SettingScreenState extends State<SettingScreen> {
                   onPressed: () async {
                     if (formKey.currentState?.validate() ?? false) {
                       final messenger = ScaffoldMessenger.of(context);
-                      final authRemoteDataSource = context.read<AuthRemoteDataSource>();
+                      final changePasswordUseCase = context.read<ChangePasswordUseCase>();
 
                       Navigator.pop(dialogContext);
                       
@@ -289,7 +293,7 @@ class _SettingScreenState extends State<SettingScreen> {
                       );
 
                       try {
-                        await authRemoteDataSource.changePassword(
+                        await changePasswordUseCase(
                           widget.userId,
                           currentPasswordController.text,
                           newPasswordController.text,

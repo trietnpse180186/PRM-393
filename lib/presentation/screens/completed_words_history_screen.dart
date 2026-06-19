@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/app_theme.dart';
-import '../../data/datasources/learning_remote_data_source.dart';
+import '../../domain/usecases/learning/fetch_completed_lessons_with_progress_usecase.dart';
 import '../../data/models/lesson_model.dart';
 import '../../data/models/user_lesson_progress_model.dart';
 import '../bloc/auth/auth_bloc.dart';
@@ -33,8 +33,8 @@ class _CompletedWordsHistoryScreenState extends State<CompletedWordsHistoryScree
       final authState = context.read<AuthBloc>().state;
       if (authState is AuthAuthenticated) {
         final userId = authState.user.id;
-        final dataSource = context.read<LearningRemoteDataSource>();
-        final items = await dataSource.fetchCompletedLessonsWithProgress(userId);
+        final useCase = context.read<FetchCompletedLessonsWithProgressUseCase>();
+        final items = await useCase(userId);
         
         if (mounted) {
           setState(() {

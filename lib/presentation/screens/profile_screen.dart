@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/app_theme.dart';
-import '../../data/datasources/learning_remote_data_source.dart';
+import '../../domain/usecases/learning/fetch_user_streak_usecase.dart';
+import '../../domain/usecases/learning/fetch_total_completed_words_usecase.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/auth/auth_event.dart';
 import '../bloc/auth/auth_state.dart';
@@ -38,11 +39,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final authState = context.read<AuthBloc>().state;
       if (authState is AuthAuthenticated) {
         final userId = authState.user.id;
-        final learningRemoteDataSource = context.read<LearningRemoteDataSource>();
+        final fetchUserStreakUseCase = context.read<FetchUserStreakUseCase>();
+        final fetchTotalCompletedWordsUseCase = context.read<FetchTotalCompletedWordsUseCase>();
 
         final results = await Future.wait([
-          learningRemoteDataSource.fetchUserStreak(userId),
-          learningRemoteDataSource.fetchTotalCompletedWords(userId),
+          fetchUserStreakUseCase(userId),
+          fetchTotalCompletedWordsUseCase(userId),
         ]);
 
         if (mounted) {
