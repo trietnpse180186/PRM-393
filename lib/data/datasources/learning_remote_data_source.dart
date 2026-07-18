@@ -251,6 +251,30 @@ class LearningRemoteDataSource {
       return [];
     }
   }
+
+  Future<void> sendFeedback({
+    required int userId,
+    required int courseId,
+    required int rating,
+    required String comment,
+  }) async {
+    try {
+      final response = await _dioClient.dio.post(
+        '/api/feedbacks',
+        data: {
+          'userId': userId,
+          'courseId': courseId,
+          'rating': rating,
+          'comment': comment,
+        },
+      );
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Gửi đánh giá thất bại');
+      }
+    } catch (e) {
+      throw Exception('Lỗi gửi đánh giá: ${e.toString()}');
+    }
+  }
 }
 
 extension DateTimeExtension on DateTime {

@@ -1,18 +1,13 @@
-class CourseCategoryModel {
-  final int id;
-  final String name;
-  final String slug;
-  final String? description;
-  final String? colorHex;
-  final int? iconMediaId;
+import '../../domain/entities/course_category_entity.dart';
 
+class CourseCategoryModel extends CourseCategoryEntity {
   CourseCategoryModel({
-    required this.id,
-    required this.name,
-    required this.slug,
-    this.description,
-    this.colorHex,
-    this.iconMediaId,
+    required super.id,
+    required super.name,
+    required super.slug,
+    super.description,
+    super.colorHex,
+    super.iconMediaId,
   });
 
   factory CourseCategoryModel.fromJson(Map<String, dynamic> json) {

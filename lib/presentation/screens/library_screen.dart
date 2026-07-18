@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/app_theme.dart';
-import '../../data/models/course_category_model.dart';
-import '../../data/models/course_model.dart';
-import '../../data/models/lesson_model.dart';
+import '../../domain/entities/course_category_entity.dart';
+import '../../domain/entities/course_entity.dart';
+import '../../domain/entities/lesson_entity.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/auth/auth_state.dart';
 import '../bloc/learning/learning_cubit.dart';
 import '../bloc/learning/learning_state.dart';
+import '../widgets/course_cover_image.dart';
 import 'course_details_screen.dart';
 
 class CategoryVisuals {
@@ -96,9 +97,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   void _showCoursesBottomSheet(
     BuildContext context,
-    CourseCategoryModel category,
-    List<CourseModel> categoryCourses,
-    List<LessonModel> allLessons,
+    CourseCategoryEntity category,
+    List<CourseEntity> categoryCourses,
+    List<LessonEntity> allLessons,
   ) {
     showModalBottomSheet(
       context: context,
@@ -200,7 +201,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
     return BlocBuilder<LearningCubit, LearningState>(
       builder: (context, state) {
-        if (state.isLoading && state.categories.isEmpty) {
+        if (state.isLoading && state.courses.isEmpty) {
           return const Center(
             child: CircularProgressIndicator(
               valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
@@ -208,7 +209,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           );
         }
 
-        if (state.errorMessage != null && state.categories.isEmpty) {
+        if (state.errorMessage != null && state.courses.isEmpty) {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
@@ -221,9 +222,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
           );
         }
 
-        // Filter categories based on search query
-        final filteredCategories = state.categories.where((cat) {
-          final title = cat.name.toLowerCase();
+        // Filter courses based on search query
+        final filteredCourses = state.courses.where((course) {
+          final title = course.title.toLowerCase();
           return title.contains(_searchQuery.toLowerCase());
         }).toList();
 
@@ -242,7 +243,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   });
                 },
                 decoration: InputDecoration(
-                  hintText: 'Tìm kiếm bài học, chủ đề...',
+                  hintText: 'Tìm kiếm bài học, khóa học...',
                   prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.onSurfaceVariant),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
@@ -259,23 +260,23 @@ class _LibraryScreenState extends State<LibraryScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Categories Grid / List
+              // Courses Grid / List
               Expanded(
-                child: filteredCategories.isEmpty
+                child: filteredCourses.isEmpty
                     ? const Center(
                         child: Text(
-                          'Không tìm thấy chủ đề nào phù hợp.',
+                          'Không tìm thấy khóa học nào phù hợp.',
                           style: TextStyle(color: AppTheme.onSurfaceVariant),
                         ),
                       )
                     : ListView.builder(
                         physics: const BouncingScrollPhysics(),
-                        itemCount: filteredCategories.length,
+                        itemCount: filteredCourses.length,
                         itemBuilder: (context, index) {
-                          final item = filteredCategories[index];
+                          final item = filteredCourses[index];
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 16.0),
-                            child: _buildCategoryCard(item, state.courses, state.allLessons, textTheme),
+                            child: _buildCourseCard(item, state.allLessons, textTheme),
                           );
                         },
                       ),
@@ -287,25 +288,25 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  Widget _buildCategoryCard(
-    CourseCategoryModel item,
-    List<CourseModel> allCourses,
-    List<LessonModel> allLessons,
+  Widget _buildCourseCard(
+    CourseEntity course,
+    List<LessonEntity> allLessons,
     TextTheme textTheme,
   ) {
-    final visuals = CategoryVisuals.fromCategory(item.slug);
-    
-    // Filter courses for this category
-    final categoryCourses = allCourses.where((c) => c.categoryId == item.id).toList();
-    
-    // Total lessons count inside all courses of this category
-    final totalCategoryLessons = allLessons.where((l) => categoryCourses.any((c) => c.id == l.courseId)).length;
-
-    final isFeatured = visuals.isFeatured;
+    // Count lessons for this course
+    final courseLessonsCount = allLessons.where((l) => l.courseId == course.id).length;
 
     return GestureDetector(
       onTap: () {
-        _showCoursesBottomSheet(context, item, categoryCourses, allLessons);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CourseDetailsScreen(
+              courseId: course.id,
+              courseTitle: course.title,
+            ),
+          ),
+        );
       },
       child: AppTheme.glassPanel(
         borderRadius: 20.0,
@@ -313,26 +314,22 @@ class _LibraryScreenState extends State<LibraryScreen> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: SizedBox(
-            height: isFeatured ? 200 : 130,
+            height: 140,
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Backdrop Image if exists
-                if (visuals.image != null)
-                  Image.network(
-                    visuals.image!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: AppTheme.surfaceContainer,
-                    ),
-                  ),
+                // Backdrop Image via CourseCoverImage
+                CourseCoverImage(
+                  courseId: course.id,
+                  fit: BoxFit.cover,
+                ),
                 // Overlay Gradient/Dimmer
                 Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Colors.black.withOpacity(0.7),
-                        Colors.black.withOpacity(visuals.image != null ? 0.3 : 0.6),
+                        Colors.black.withOpacity(0.8),
+                        Colors.black.withOpacity(0.3),
                       ],
                       begin: Alignment.bottomLeft,
                       end: Alignment.topRight,
@@ -341,73 +338,56 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 ),
                 // Content
                 Padding(
-                  padding: const EdgeInsets.all(20.0),
+                  padding: const EdgeInsets.all(16.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Icon Row
-                      Align(
-                        alignment: Alignment.topLeft,
-                        child: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: visuals.color.withOpacity(0.2),
-                          ),
-                          child: Icon(visuals.icon, color: visuals.color, size: 24),
-                        ),
-                      ),
-                      // Text Info
+                      // Badge Row
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.name,
-                                style: textTheme.headlineSmall?.copyWith(
-                                  fontSize: isFeatured ? 24 : 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '$totalCategoryLessons Bài học • ${categoryCourses.length} Khóa học',
-                                style: textTheme.bodyMedium?.copyWith(
-                                  color: AppTheme.onSurfaceVariant,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (isFeatured)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.08),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.white.withOpacity(0.15)),
-                              ),
-                              child: Row(
-                                children: [
-                                  Text(
-                                    'Bắt đầu',
-                                    style: textTheme.labelLarge?.copyWith(
-                                      color: AppTheme.primaryColor,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Icon(Icons.arrow_forward_rounded, color: AppTheme.primaryColor, size: 12),
-                                ],
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
+                            ),
+                            child: Text(
+                              course.level.toUpperCase(),
+                              style: textTheme.labelLarge?.copyWith(
+                                color: AppTheme.primaryColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 9,
                               ),
                             ),
+                          ),
+                          const Icon(Icons.arrow_forward_rounded, color: AppTheme.primaryColor, size: 18),
+                        ],
+                      ),
+                      // Text Info
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            course.title,
+                            style: textTheme.headlineSmall?.copyWith(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '$courseLessonsCount Bài học',
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: AppTheme.onSurfaceVariant,
+                              fontSize: 11,
+                            ),
+                          ),
                         ],
                       ),
                     ],

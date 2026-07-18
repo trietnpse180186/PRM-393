@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/app_theme.dart';
-import '../../data/datasources/learning_remote_data_source.dart';
+import '../../core/services/local_notification_service.dart';
+import '../../domain/usecases/learning/fetch_user_streak_usecase.dart';
+import '../../domain/usecases/learning/fetch_total_completed_words_usecase.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/auth/auth_event.dart';
 import '../bloc/auth/auth_state.dart';
@@ -21,11 +24,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int _streakDays = 0;
   int _completedWords = 0;
   bool _isLoadingData = true;
+  bool _isDailyReminderEnabled = false;
+  TimeOfDay _reminderTime = const TimeOfDay(hour: 20, minute: 0);
 
   @override
   void initState() {
     super.initState();
     _loadProfileData();
+    _loadReminderSettings();
+  }
+
+  Future<void> _loadReminderSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _isDailyReminderEnabled = prefs.getBool('vsl_daily_reminder_enabled') ?? false;
+        final hour = prefs.getInt('vsl_daily_reminder_hour') ?? 20;
+        final minute = prefs.getInt('vsl_daily_reminder_minute') ?? 0;
+        _reminderTime = TimeOfDay(hour: hour, minute: minute);
+      });
+    }
   }
 
   Future<void> _loadProfileData() async {
@@ -38,11 +56,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final authState = context.read<AuthBloc>().state;
       if (authState is AuthAuthenticated) {
         final userId = authState.user.id;
-        final learningRemoteDataSource = context.read<LearningRemoteDataSource>();
+        final fetchUserStreakUseCase = context.read<FetchUserStreakUseCase>();
+        final fetchTotalCompletedWordsUseCase = context.read<FetchTotalCompletedWordsUseCase>();
 
         final results = await Future.wait([
-          learningRemoteDataSource.fetchUserStreak(userId),
-          learningRemoteDataSource.fetchTotalCompletedWords(userId),
+          fetchUserStreakUseCase(userId),
+          fetchTotalCompletedWordsUseCase(userId),
         ]);
 
         if (mounted) {
@@ -475,6 +494,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       Divider(color: Colors.white.withOpacity(0.05), height: 1),
                       _buildMenuItem(
+                        icon: Icons.notifications_active_rounded,
+                        title: 'Nhắc nhở học tập hàng ngày',
+                        onTap: () => _showNotificationSettingsBottomSheet(context),
+                      ),
+                      Divider(color: Colors.white.withOpacity(0.05), height: 1),
+                      _buildMenuItem(
                         icon: Icons.help_center_rounded,
                         title: 'Trợ giúp & Hỗ trợ',
                         onTap: () {
@@ -582,6 +607,203 @@ class _ProfileScreenState extends State<ProfileScreen> {
           : null,
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 4.0),
+    );
+  }
+
+  Future<void> _saveReminderSettings(bool enabled, TimeOfDay time) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('vsl_daily_reminder_enabled', enabled);
+    await prefs.setInt('vsl_daily_reminder_hour', time.hour);
+    await prefs.setInt('vsl_daily_reminder_minute', time.minute);
+
+    if (enabled) {
+      try {
+        await LocalNotificationService().scheduleDailyNotification(
+          id: 999,
+          title: '⏰ Đến giờ học VSL rồi!',
+          body: 'Hãy dành 10 phút ôn tập ký hiệu ngôn ngữ và giữ vững Streak của bạn nhé!',
+          hour: time.hour,
+          minute: time.minute,
+        );
+      } catch (e) {
+        print("Lỗi lên lịch thông báo hàng ngày: $e");
+      }
+    } else {
+      try {
+        await LocalNotificationService().cancelNotification(999);
+      } catch (e) {
+        print("Lỗi hủy lịch thông báo hàng ngày: $e");
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _isDailyReminderEnabled = enabled;
+        _reminderTime = time;
+      });
+    }
+  }
+
+  void _showNotificationSettingsBottomSheet(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    
+    bool localEnabled = _isDailyReminderEnabled;
+    TimeOfDay localTime = _reminderTime;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (bottomSheetCtx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceContainer.withOpacity(0.98),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border.all(color: Colors.white.withOpacity(0.1)),
+              ),
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Nhắc nhở học hàng ngày',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: AppTheme.onSurfaceVariant, size: 20),
+                        onPressed: () => Navigator.pop(bottomSheetCtx),
+                      )
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Switch row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.alarm_rounded, color: AppTheme.primaryColor),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Bật nhắc nhở',
+                            style: textTheme.bodyLarge?.copyWith(color: Colors.white),
+                          ),
+                        ],
+                      ),
+                      Switch.adaptive(
+                        value: localEnabled,
+                        activeColor: AppTheme.primaryColor,
+                        onChanged: (val) {
+                          setModalState(() {
+                            localEnabled = val;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Time selector row
+                  if (localEnabled) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Thời gian nhắc nhở',
+                          style: textTheme.bodyMedium?.copyWith(color: AppTheme.onSurfaceVariant),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            final TimeOfDay? picked = await showTimePicker(
+                              context: context,
+                              initialTime: localTime,
+                              builder: (context, child) {
+                                return Theme(
+                                  data: Theme.of(context).copyWith(
+                                    colorScheme: const ColorScheme.dark(
+                                      primary: AppTheme.primaryColor,
+                                      onPrimary: Colors.black,
+                                      surface: AppTheme.surfaceContainer,
+                                      onSurface: Colors.white,
+                                    ),
+                                    textButtonTheme: TextButtonThemeData(
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: AppTheme.primaryColor,
+                                      ),
+                                    ),
+                                  ),
+                                  child: child!,
+                                );
+                              },
+                            );
+                            if (picked != null) {
+                              setModalState(() {
+                                localTime = picked;
+                              });
+                            }
+                          },
+                          child: Text(
+                            localTime.format(context),
+                            style: const TextStyle(
+                              color: AppTheme.primaryColor,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Save Button
+                  ElevatedButton(
+                    onPressed: () async {
+                      await _saveReminderSettings(localEnabled, localTime);
+                      if (context.mounted) {
+                        Navigator.pop(bottomSheetCtx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              localEnabled 
+                                ? 'Đã bật nhắc nhở học tập lúc ${localTime.format(context)}' 
+                                : 'Đã tắt nhắc nhở học tập hàng ngày.'
+                            ),
+                            backgroundColor: AppTheme.primaryColor,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text(
+                      'Lưu cài đặt',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

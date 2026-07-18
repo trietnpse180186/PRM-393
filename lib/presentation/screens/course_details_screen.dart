@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/course_model.dart';
-import '../../data/models/lesson_model.dart';
-import '../../data/models/user_lesson_progress_model.dart';
+import '../../domain/entities/lesson_entity.dart';
+import '../../domain/entities/user_lesson_progress_entity.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/auth/auth_state.dart';
 import '../bloc/learning/learning_cubit.dart';
 import '../bloc/learning/learning_state.dart';
+import '../widgets/course_cover_image.dart';
 import 'lesson_screen.dart';
 
 class CourseDetailsScreen extends StatefulWidget {
@@ -26,6 +27,15 @@ class CourseDetailsScreen extends StatefulWidget {
 
 class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
   int _userId = 3; // Default test user
+  int _userRating = 5;
+  final TextEditingController _commentController = TextEditingController();
+  bool _isSubmittingReview = false;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -150,7 +160,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
           final completedLessonsCount = state.currentCourseLessons.where((l) {
             final lessonProgress = state.currentCourseProgress.firstWhere(
               (p) => p.lessonId == l.id,
-              orElse: () => UserLessonProgressModel(
+              orElse: () => UserLessonProgressEntity(
                 id: 0,
                 userId: _userId,
                 lessonId: l.id,
@@ -172,12 +182,12 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
           final progressFraction = calculatedProgressPercent / 100.0;
 
           // Find first uncompleted lesson
-          LessonModel? nextLesson;
+          LessonEntity? nextLesson;
           for (int i = 0; i < state.currentCourseLessons.length; i++) {
             final lesson = state.currentCourseLessons[i];
             final prog = state.currentCourseProgress.firstWhere(
               (p) => p.lessonId == lesson.id,
-              orElse: () => UserLessonProgressModel(
+              orElse: () => UserLessonProgressEntity(
                 id: 0,
                 userId: _userId,
                 lessonId: lesson.id,
@@ -234,13 +244,9 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                                     child: Stack(
                                       fit: StackFit.expand,
                                       children: [
-                                        Image.network(
-                                          'https://lh3.googleusercontent.com/aida-public/AB6AXuCMOF2Qy0isejaAA2weOFFbUJ0kl1UOhPLalHFCqsAYZCdks3qVyJH5lDKuX-V6x2pO7yoPzv_kHWkW3yXF5xTAP41MjvAQmNGsSULjyQgOuFQVR1SfHXlHJ97IilRCbUTuyb1OAVTiX-12FVxQ1Kq6n0wfTd1yhhrHeJgCS2fzxqkhvWmglIeZ6R3wW9q7GkPzxUCV0b45Aj3ZLvob2--De_8SFraPbsYnZwhlEmp9rlbx4skWbHh17U0-azF-No_2d3UQ0zoO6ps',
+                                        CourseCoverImage(
+                                          courseId: widget.courseId,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) => Container(
-                                            color: AppTheme.surfaceContainerHighest,
-                                            child: const Icon(Icons.menu_book_rounded, size: 48, color: AppTheme.onSurfaceVariant),
-                                          ),
                                         ),
                                         Container(
                                           decoration: BoxDecoration(
@@ -431,7 +437,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                                       final prevLesson = state.currentCourseLessons[index - 1];
                                       final prevProg = state.currentCourseProgress.firstWhere(
                                         (p) => p.lessonId == prevLesson.id,
-                                        orElse: () => UserLessonProgressModel(
+                                        orElse: () => UserLessonProgressEntity(
                                           id: 0,
                                           userId: _userId,
                                           lessonId: prevLesson.id,
@@ -450,7 +456,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                                     // Get current lesson progress
                                     final lessonProgress = state.currentCourseProgress.firstWhere(
                                       (p) => p.lessonId == lesson.id,
-                                      orElse: () => UserLessonProgressModel(
+                                      orElse: () => UserLessonProgressEntity(
                                         id: 0,
                                         userId: _userId,
                                         lessonId: lesson.id,
@@ -517,6 +523,8 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                                     ],
                                   ),
                                 ),
+                                const SizedBox(height: 16),
+                                _buildReviewSection(textTheme),
                                 const SizedBox(height: 64), // Buffer spacing for floating button
                               ],
                             ),
@@ -605,7 +613,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
     );
   }
 
-  Widget _buildLessonCard(BuildContext context, LessonModel lesson, String status, TextTheme textTheme, int index) {
+  Widget _buildLessonCard(BuildContext context, LessonEntity lesson, String status, TextTheme textTheme, int index) {
     final isLocked = status == 'locked';
     const Color mintColor = Color(0xFF10B981);
     const Color darkCardColor = Color(0xFF131A16);
@@ -715,5 +723,150 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildReviewSection(TextTheme textTheme) {
+    return AppTheme.glassPanel(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Đánh giá khóa học này',
+            style: textTheme.headlineSmall?.copyWith(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Star rating selector
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(5, (index) {
+              final starValue = index + 1;
+              return IconButton(
+                icon: Icon(
+                  starValue <= _userRating 
+                      ? Icons.star_rounded 
+                      : Icons.star_border_rounded,
+                  color: const Color(0xFFFFD700),
+                  size: 32,
+                ),
+                onPressed: _isSubmittingReview 
+                    ? null 
+                    : () {
+                        setState(() {
+                          _userRating = starValue;
+                        });
+                      },
+              );
+            }),
+          ),
+          const SizedBox(height: 12),
+          // Comment TextField
+          TextField(
+            controller: _commentController,
+            maxLines: 3,
+            maxLength: 200,
+            enabled: !_isSubmittingReview,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+            decoration: InputDecoration(
+              hintText: 'Nhập ý kiến đóng góp của bạn về khóa học...',
+              hintStyle: const TextStyle(color: AppTheme.onSurfaceVariant, fontSize: 13),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.03),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppTheme.primaryColor),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Submit Button
+          ElevatedButton(
+            onPressed: _isSubmittingReview ? null : _submitReview,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.secondaryColor,
+              foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: _isSubmittingReview
+                ? const SizedBox(
+                    height: 16,
+                    width: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(Colors.black),
+                    ),
+                  )
+                : const Text(
+                    'Gửi đánh giá',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _submitReview() async {
+    final comment = _commentController.text.trim();
+    if (comment.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng nhập nhận xét của bạn.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmittingReview = true;
+    });
+
+    try {
+      await context.read<LearningCubit>().sendFeedback(
+        userId: _userId,
+        courseId: widget.courseId,
+        rating: _userRating,
+        comment: comment,
+      );
+
+      if (mounted) {
+        _commentController.clear();
+        setState(() {
+          _userRating = 5;
+          _isSubmittingReview = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🎉 Cảm ơn đóng góp của bạn! Đánh giá đã được gửi đi.'),
+            backgroundColor: AppTheme.primaryColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSubmittingReview = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi gửi đánh giá: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
   }
 }

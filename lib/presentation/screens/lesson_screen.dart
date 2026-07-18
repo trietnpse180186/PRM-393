@@ -3,16 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:video_player/video_player.dart';
 import '../../core/theme/app_theme.dart';
-import '../../data/datasources/learning_remote_data_source.dart';
-import '../../data/models/lesson_model.dart';
-import '../../data/models/user_lesson_progress_model.dart';
+import '../../domain/usecases/learning/fetch_video_url_usecase.dart';
+import '../../domain/entities/lesson_entity.dart';
+import '../../domain/entities/user_lesson_progress_entity.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/auth/auth_state.dart';
 import '../bloc/learning/learning_cubit.dart';
 import 'ai_grading_exercise_screen.dart';
 
 class LessonScreen extends StatefulWidget {
-  final LessonModel lesson;
+  final LessonEntity lesson;
 
   const LessonScreen({
     super.key,
@@ -56,8 +56,8 @@ class _LessonScreenState extends State<LessonScreen> {
     });
 
     try {
-      final dataSource = context.read<LearningRemoteDataSource>();
-      final url = await dataSource.fetchVideoUrl(widget.lesson.videoMediaId!);
+      final useCase = context.read<FetchVideoUrlUseCase>();
+      final url = await useCase(widget.lesson.videoMediaId!);
       if (url != null && url.isNotEmpty) {
         _controller = VideoPlayerController.networkUrl(Uri.parse(url));
         await _controller!.initialize();
@@ -446,7 +446,7 @@ class _LessonScreenState extends State<LessonScreen> {
 
                               if (!context.mounted || result == null) return;
 
-                              if (result is LessonModel) {
+                              if (result is LessonEntity) {
                                 Navigator.pushReplacement(
                                   context,
                                   MaterialPageRoute(
@@ -506,7 +506,7 @@ class _LessonScreenState extends State<LessonScreen> {
                                 // Check if next lesson is locked
                                 final prog = state.currentCourseProgress.firstWhere(
                                   (p) => p.lessonId == widget.lesson.id,
-                                  orElse: () => UserLessonProgressModel(
+                                  orElse: () => UserLessonProgressEntity(
                                     id: 0,
                                     userId: _userId,
                                     lessonId: widget.lesson.id,

@@ -4,12 +4,57 @@ import 'package:firebase_core/firebase_core.dart';
 import 'core/network/dio_client.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/push_notification_service.dart';
+
+// Data Sources
 import 'data/datasources/auth_remote_data_source.dart';
 import 'data/datasources/learning_remote_data_source.dart';
+import 'data/datasources/gesture_data_source.dart';
+
+// Repositories Implementations
+import 'data/repositories/auth_repository_impl.dart';
+import 'data/repositories/learning_repository_impl.dart';
+import 'data/repositories/gesture_repository_impl.dart';
+
+// Domain Use Cases - Auth
+import 'domain/usecases/auth/login_usecase.dart';
+import 'domain/usecases/auth/register_usecase.dart';
+import 'domain/usecases/auth/logout_usecase.dart';
+import 'domain/usecases/auth/check_auth_usecase.dart';
+import 'domain/usecases/auth/get_cached_user_usecase.dart';
+import 'domain/usecases/auth/login_with_google_usecase.dart';
+import 'domain/usecases/auth/delete_account_usecase.dart';
+import 'domain/usecases/auth/update_user_info_usecase.dart';
+import 'domain/usecases/auth/update_user_profile_phone_usecase.dart';
+import 'domain/usecases/auth/change_password_usecase.dart';
+import 'domain/usecases/auth/get_user_profile_phone_usecase.dart';
+
+// Domain Use Cases - Learning
+import 'domain/usecases/learning/load_catalog_usecase.dart';
+import 'domain/usecases/learning/load_course_details_usecase.dart';
+import 'domain/usecases/learning/load_lesson_details_usecase.dart';
+import 'domain/usecases/learning/start_lesson_usecase.dart';
+import 'domain/usecases/learning/complete_lesson_usecase.dart';
+import 'domain/usecases/learning/enroll_in_course_usecase.dart';
+import 'domain/usecases/learning/fetch_video_url_usecase.dart';
+import 'domain/usecases/learning/fetch_user_streak_usecase.dart';
+import 'domain/usecases/learning/fetch_total_completed_words_usecase.dart';
+import 'domain/usecases/learning/fetch_completed_lessons_with_progress_usecase.dart';
+import 'domain/usecases/learning/fetch_notifications_usecase.dart';
+import 'domain/usecases/learning/mark_notification_as_read_usecase.dart';
+import 'domain/usecases/learning/send_feedback_usecase.dart';
+import 'core/services/local_notification_service.dart';
+
+// Domain Use Cases - Gesture
+import 'domain/usecases/gesture/predict_gesture_usecase.dart';
+import 'domain/usecases/gesture/translate_sentence_usecase.dart';
+
+// Presentation Blocs
 import 'presentation/bloc/auth/auth_bloc.dart';
 import 'presentation/bloc/auth/auth_event.dart';
 import 'presentation/bloc/auth/auth_state.dart';
 import 'presentation/bloc/learning/learning_cubit.dart';
+import 'presentation/bloc/gesture_bloc.dart';
+
 import 'presentation/screens/welcome_screen.dart';
 import 'presentation/screens/home_screen.dart';
 import 'firebase_options.dart';
@@ -22,45 +67,220 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  // Initialize Local Notification Service
+  try {
+    await LocalNotificationService().initialize();
+    await LocalNotificationService().requestPermissions();
+  } catch (e) {
+    print("Không thể khởi tạo Local Notification: $e");
+  }
+
   // Initialize Push Notification Service
   final pushNotificationService = PushNotificationService();
   await pushNotificationService.initialize();
   
   // Set up dependency injection / instances
   final dioClient = DioClient();
+  
+  // Data Sources
   final authRemoteDataSource = AuthRemoteDataSource(dioClient);
   final learningRemoteDataSource = LearningRemoteDataSource(dioClient);
+  final gestureDataSource = GestureDataSource(dioClient);
+
+  // Repositories
+  final authRepository = AuthRepositoryImpl(authRemoteDataSource);
+  final learningRepository = LearningRepositoryImpl(learningRemoteDataSource);
+  final gestureRepository = GestureRepositoryImpl(gestureDataSource);
+
+  // Use Cases - Auth
+  final loginUseCase = LoginUseCase(authRepository);
+  final registerUseCase = RegisterUseCase(authRepository);
+  final logoutUseCase = LogoutUseCase(authRepository);
+  final checkAuthUseCase = CheckAuthUseCase(authRepository);
+  final getCachedUserUseCase = GetCachedUserUseCase(authRepository);
+  final loginWithGoogleUseCase = LoginWithGoogleUseCase(authRepository);
+  final deleteAccountUseCase = DeleteAccountUseCase(authRepository);
+  final updateUserInfoUseCase = UpdateUserInfoUseCase(authRepository);
+  final updateUserProfilePhoneUseCase = UpdateUserProfilePhoneUseCase(authRepository);
+  final changePasswordUseCase = ChangePasswordUseCase(authRepository);
+  final getUserProfilePhoneUseCase = GetUserProfilePhoneUseCase(authRepository);
+
+  // Use Cases - Learning
+  final loadCatalogUseCase = LoadCatalogUseCase(learningRepository);
+  final loadCourseDetailsUseCase = LoadCourseDetailsUseCase(learningRepository);
+  final loadLessonDetailsUseCase = LoadLessonDetailsUseCase(learningRepository);
+  final startLessonUseCase = StartLessonUseCase(learningRepository);
+  final completeLessonUseCase = CompleteLessonUseCase(learningRepository);
+  final enrollInCourseUseCase = EnrollInCourseUseCase(learningRepository);
+  final fetchVideoUrlUseCase = FetchVideoUrlUseCase(learningRepository);
+  final fetchUserStreakUseCase = FetchUserStreakUseCase(learningRepository);
+  final fetchTotalCompletedWordsUseCase = FetchTotalCompletedWordsUseCase(learningRepository);
+  final fetchCompletedLessonsWithProgressUseCase = FetchCompletedLessonsWithProgressUseCase(learningRepository);
+  final fetchNotificationsUseCase = FetchNotificationsUseCase(learningRepository);
+  final markNotificationAsReadUseCase = MarkNotificationAsReadUseCase(learningRepository);
+  final sendFeedbackUseCase = SendFeedbackUseCase(learningRepository);
+
+  // Use Cases - Gesture
+  final predictGestureUseCase = PredictGestureUseCase(gestureRepository);
+  final translateSentenceUseCase = TranslateSentenceUseCase(gestureRepository);
 
   runApp(MyApp(
-    authRemoteDataSource: authRemoteDataSource,
-    learningRemoteDataSource: learningRemoteDataSource,
+    loginUseCase: loginUseCase,
+    registerUseCase: registerUseCase,
+    logoutUseCase: logoutUseCase,
+    checkAuthUseCase: checkAuthUseCase,
+    getCachedUserUseCase: getCachedUserUseCase,
+    loginWithGoogleUseCase: loginWithGoogleUseCase,
+    deleteAccountUseCase: deleteAccountUseCase,
+    updateUserInfoUseCase: updateUserInfoUseCase,
+    updateUserProfilePhoneUseCase: updateUserProfilePhoneUseCase,
+    changePasswordUseCase: changePasswordUseCase,
+    getUserProfilePhoneUseCase: getUserProfilePhoneUseCase,
+
+    loadCatalogUseCase: loadCatalogUseCase,
+    loadCourseDetailsUseCase: loadCourseDetailsUseCase,
+    loadLessonDetailsUseCase: loadLessonDetailsUseCase,
+    startLessonUseCase: startLessonUseCase,
+    completeLessonUseCase: completeLessonUseCase,
+    enrollInCourseUseCase: enrollInCourseUseCase,
+    sendFeedbackUseCase: sendFeedbackUseCase,
+    fetchNotificationsUseCase: fetchNotificationsUseCase,
+    markNotificationAsReadUseCase: markNotificationAsReadUseCase,
+    fetchVideoUrlUseCase: fetchVideoUrlUseCase,
+    fetchUserStreakUseCase: fetchUserStreakUseCase,
+    fetchTotalCompletedWordsUseCase: fetchTotalCompletedWordsUseCase,
+    fetchCompletedLessonsWithProgressUseCase: fetchCompletedLessonsWithProgressUseCase,
+
+    predictGestureUseCase: predictGestureUseCase,
+    translateSentenceUseCase: translateSentenceUseCase,
   ));
 }
 
 class MyApp extends StatelessWidget {
-  final AuthRemoteDataSource authRemoteDataSource;
-  final LearningRemoteDataSource learningRemoteDataSource;
+  // Auth Use Cases
+  final LoginUseCase loginUseCase;
+  final RegisterUseCase registerUseCase;
+  final LogoutUseCase logoutUseCase;
+  final CheckAuthUseCase checkAuthUseCase;
+  final GetCachedUserUseCase getCachedUserUseCase;
+  final LoginWithGoogleUseCase loginWithGoogleUseCase;
+  final DeleteAccountUseCase deleteAccountUseCase;
+  final UpdateUserInfoUseCase updateUserInfoUseCase;
+  final UpdateUserProfilePhoneUseCase updateUserProfilePhoneUseCase;
+  final ChangePasswordUseCase changePasswordUseCase;
+  final GetUserProfilePhoneUseCase getUserProfilePhoneUseCase;
+
+  // Learning Use Cases
+  final LoadCatalogUseCase loadCatalogUseCase;
+  final LoadCourseDetailsUseCase loadCourseDetailsUseCase;
+  final LoadLessonDetailsUseCase loadLessonDetailsUseCase;
+  final StartLessonUseCase startLessonUseCase;
+  final CompleteLessonUseCase completeLessonUseCase;
+  final EnrollInCourseUseCase enrollInCourseUseCase;
+  final FetchVideoUrlUseCase fetchVideoUrlUseCase;
+  final FetchUserStreakUseCase fetchUserStreakUseCase;
+  final FetchTotalCompletedWordsUseCase fetchTotalCompletedWordsUseCase;
+  final FetchCompletedLessonsWithProgressUseCase fetchCompletedLessonsWithProgressUseCase;
+  final FetchNotificationsUseCase fetchNotificationsUseCase;
+  final MarkNotificationAsReadUseCase markNotificationAsReadUseCase;
+  final SendFeedbackUseCase sendFeedbackUseCase;
+
+  // Gesture Use Cases
+  final PredictGestureUseCase predictGestureUseCase;
+  final TranslateSentenceUseCase translateSentenceUseCase;
 
   const MyApp({
     super.key,
-    required this.authRemoteDataSource,
-    required this.learningRemoteDataSource,
+    required this.loginUseCase,
+    required this.registerUseCase,
+    required this.logoutUseCase,
+    required this.checkAuthUseCase,
+    required this.getCachedUserUseCase,
+    required this.loginWithGoogleUseCase,
+    required this.deleteAccountUseCase,
+    required this.updateUserInfoUseCase,
+    required this.updateUserProfilePhoneUseCase,
+    required this.changePasswordUseCase,
+    required this.getUserProfilePhoneUseCase,
+
+    required this.loadCatalogUseCase,
+    required this.loadCourseDetailsUseCase,
+    required this.loadLessonDetailsUseCase,
+    required this.startLessonUseCase,
+    required this.completeLessonUseCase,
+    required this.enrollInCourseUseCase,
+    required this.fetchVideoUrlUseCase,
+    required this.fetchUserStreakUseCase,
+    required this.fetchTotalCompletedWordsUseCase,
+    required this.fetchCompletedLessonsWithProgressUseCase,
+    required this.fetchNotificationsUseCase,
+    required this.markNotificationAsReadUseCase,
+    required this.sendFeedbackUseCase,
+
+    required this.predictGestureUseCase,
+    required this.translateSentenceUseCase,
   });
 
   @override
   Widget build(BuildContext context) {
     return MultiRepositoryProvider(
       providers: [
-        RepositoryProvider<AuthRemoteDataSource>.value(value: authRemoteDataSource),
-        RepositoryProvider<LearningRemoteDataSource>.value(value: learningRemoteDataSource),
+        RepositoryProvider<LoginUseCase>.value(value: loginUseCase),
+        RepositoryProvider<RegisterUseCase>.value(value: registerUseCase),
+        RepositoryProvider<LogoutUseCase>.value(value: logoutUseCase),
+        RepositoryProvider<CheckAuthUseCase>.value(value: checkAuthUseCase),
+        RepositoryProvider<GetCachedUserUseCase>.value(value: getCachedUserUseCase),
+        RepositoryProvider<LoginWithGoogleUseCase>.value(value: loginWithGoogleUseCase),
+        RepositoryProvider<DeleteAccountUseCase>.value(value: deleteAccountUseCase),
+        RepositoryProvider<UpdateUserInfoUseCase>.value(value: updateUserInfoUseCase),
+        RepositoryProvider<UpdateUserProfilePhoneUseCase>.value(value: updateUserProfilePhoneUseCase),
+        RepositoryProvider<ChangePasswordUseCase>.value(value: changePasswordUseCase),
+        RepositoryProvider<GetUserProfilePhoneUseCase>.value(value: getUserProfilePhoneUseCase),
+
+        RepositoryProvider.value(value: loadCatalogUseCase),
+        RepositoryProvider.value(value: loadCourseDetailsUseCase),
+        RepositoryProvider.value(value: loadLessonDetailsUseCase),
+        RepositoryProvider.value(value: startLessonUseCase),
+        RepositoryProvider.value(value: completeLessonUseCase),
+        RepositoryProvider.value(value: enrollInCourseUseCase),
+        RepositoryProvider.value(value: fetchNotificationsUseCase),
+        RepositoryProvider.value(value: markNotificationAsReadUseCase),
+        RepositoryProvider.value(value: sendFeedbackUseCase),
+        RepositoryProvider.value(value: fetchVideoUrlUseCase),
+        RepositoryProvider.value(value: fetchUserStreakUseCase),
+        RepositoryProvider.value(value: fetchTotalCompletedWordsUseCase),
+        RepositoryProvider.value(value: fetchCompletedLessonsWithProgressUseCase),
+        RepositoryProvider.value(value: predictGestureUseCase),
+        RepositoryProvider.value(value: translateSentenceUseCase),
       ],
       child: MultiBlocProvider(
         providers: [
           BlocProvider<AuthBloc>(
-            create: (context) => AuthBloc(authRemoteDataSource)..add(AuthCheckRequested()),
+            create: (context) => AuthBloc(
+              loginUseCase: loginUseCase,
+              registerUseCase: registerUseCase,
+              logoutUseCase: logoutUseCase,
+              checkAuthUseCase: checkAuthUseCase,
+              getCachedUserUseCase: getCachedUserUseCase,
+              loginWithGoogleUseCase: loginWithGoogleUseCase,
+              deleteAccountUseCase: deleteAccountUseCase,
+            )..add(AuthCheckRequested()),
           ),
           BlocProvider<LearningCubit>(
-            create: (context) => LearningCubit(learningRemoteDataSource),
+            create: (context) => LearningCubit(
+              loadCatalogUseCase: loadCatalogUseCase,
+              loadCourseDetailsUseCase: loadCourseDetailsUseCase,
+              loadLessonDetailsUseCase: loadLessonDetailsUseCase,
+              startLessonUseCase: startLessonUseCase,
+              completeLessonUseCase: completeLessonUseCase,
+              enrollInCourseUseCase: enrollInCourseUseCase,
+            ),
+          ),
+          BlocProvider<GestureBloc>(
+            create: (context) => GestureBloc(
+              predictGestureUseCase: predictGestureUseCase,
+              translateSentenceUseCase: translateSentenceUseCase,
+            ),
           ),
         ],
         child: MaterialApp(

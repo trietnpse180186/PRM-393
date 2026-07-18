@@ -1,16 +1,12 @@
-class EnrollmentModel {
-  final int id;
-  final int userId;
-  final int courseId;
-  final double progressPercent;
-  final String status;
+import '../../domain/entities/enrollment_entity.dart';
 
+class EnrollmentModel extends EnrollmentEntity {
   EnrollmentModel({
-    required this.id,
-    required this.userId,
-    required this.courseId,
-    required this.progressPercent,
-    required this.status,
+    required super.id,
+    required super.userId,
+    required super.courseId,
+    required super.progressPercent,
+    required super.status,
   });
 
   factory EnrollmentModel.fromJson(Map<String, dynamic> json) {

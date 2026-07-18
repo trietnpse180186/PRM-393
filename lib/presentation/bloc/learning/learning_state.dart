@@ -1,19 +1,19 @@
-import '../../../data/models/course_category_model.dart';
-import '../../../data/models/course_model.dart';
-import '../../../data/models/lesson_model.dart';
-import '../../../data/models/user_lesson_progress_model.dart';
-import '../../../data/models/enrollment_model.dart';
+import '../../../domain/entities/course_category_entity.dart';
+import '../../../domain/entities/course_entity.dart';
+import '../../../domain/entities/lesson_entity.dart';
+import '../../../domain/entities/user_lesson_progress_entity.dart';
+import '../../../domain/entities/enrollment_entity.dart';
 
 class LearningState {
   final bool isLoading;
   final String? errorMessage;
-  final List<CourseCategoryModel> categories;
-  final List<CourseModel> courses;
-  final List<EnrollmentModel> enrollments;
-  final List<LessonModel> allLessons;
-  final List<LessonModel> currentCourseLessons;
-  final List<UserLessonProgressModel> currentCourseProgress;
-  final LessonModel? activeLesson;
+  final List<CourseCategoryEntity> categories;
+  final List<CourseEntity> courses;
+  final List<EnrollmentEntity> enrollments;
+  final List<LessonEntity> allLessons;
+  final List<LessonEntity> currentCourseLessons;
+  final List<UserLessonProgressEntity> currentCourseProgress;
+  final LessonEntity? activeLesson;
   final int streakDays;
 
   LearningState({
@@ -32,13 +32,13 @@ class LearningState {
   LearningState copyWith({
     bool? isLoading,
     String? errorMessage,
-    List<CourseCategoryModel>? categories,
-    List<CourseModel>? courses,
-    List<EnrollmentModel>? enrollments,
-    List<LessonModel>? allLessons,
-    List<LessonModel>? currentCourseLessons,
-    List<UserLessonProgressModel>? currentCourseProgress,
-    LessonModel? activeLesson,
+    List<CourseCategoryEntity>? categories,
+    List<CourseEntity>? courses,
+    List<EnrollmentEntity>? enrollments,
+    List<LessonEntity>? allLessons,
+    List<LessonEntity>? currentCourseLessons,
+    List<UserLessonProgressEntity>? currentCourseProgress,
+    LessonEntity? activeLesson,
     int? streakDays,
   }) {
     return LearningState(

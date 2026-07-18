@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
-import '../../data/models/lesson_model.dart';
+import '../../domain/entities/lesson_entity.dart';
 import 'ai_grading_score_screen.dart';
 
 class AiGradingExerciseScreen extends StatefulWidget {
-  final LessonModel lesson;
+  final LessonEntity lesson;
 
   const AiGradingExerciseScreen({
     super.key,
