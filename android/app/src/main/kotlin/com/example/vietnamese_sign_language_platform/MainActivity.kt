@@ -108,6 +108,8 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    @Volatile private var isNativeProcessing = false
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
@@ -127,6 +129,7 @@ class MainActivity : FlutterActivity() {
                     val bytes = call.argument<ByteArray>("bytes")
                     val width = call.argument<Int>("width")
                     val height = call.argument<Int>("height")
+                    val rotation = call.argument<Int>("rotation") ?: 0
 
                     if (bytes == null || width == null || height == null) {
                         result.error("INVALID_ARGUMENTS", "Required arguments bytes, width, or height are missing", null)
@@ -138,10 +141,15 @@ class MainActivity : FlutterActivity() {
                         return@setMethodCallHandler
                     }
 
-                    // Run inference on a background worker thread
+                    if (isNativeProcessing) {
+                        result.success(emptyList<Double>())
+                        return@setMethodCallHandler
+                    }
+
+                    isNativeProcessing = true
                     Thread {
                         try {
-                            val bitmap = nv21ToBitmap(bytes, width, height)
+                            val bitmap = nv21ToBitmap(bytes, width, height, rotation)
                             val mpImage = BitmapImageBuilder(bitmap).build()
 
                             var timestampMs = System.currentTimeMillis()
@@ -157,10 +165,12 @@ class MainActivity : FlutterActivity() {
                             bitmap.recycle()
 
                             runOnUiThread {
+                                isNativeProcessing = false
                                 result.success(flatLandmarks)
                             }
                         } catch (e: Exception) {
                             runOnUiThread {
+                                isNativeProcessing = false
                                 result.error("INFERENCE_ERROR", "Error during holistic tracking inference: $e", null)
                             }
                         }
@@ -171,7 +181,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun nv21ToBitmap(nv21: ByteArray, width: Int, height: Int): Bitmap {
+    private fun nv21ToBitmap(nv21: ByteArray, width: Int, height: Int, rotation: Int): Bitmap {
         val yuvImage = YuvImage(nv21, ImageFormat.NV21, width, height, null)
         val out = ByteArrayOutputStream()
         yuvImage.compressToJpeg(Rect(0, 0, width, height), 90, out)
@@ -179,8 +189,9 @@ class MainActivity : FlutterActivity() {
         val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
 
         val matrix = android.graphics.Matrix()
-        // Rotate 270 degrees for portrait orientation
-        matrix.postRotate(270f)
+        if (rotation != 0) {
+            matrix.postRotate(rotation.toFloat())
+        }
         // Flip horizontally to simulate mirrored selfie camera view
         matrix.postScale(-1f, 1f)
 

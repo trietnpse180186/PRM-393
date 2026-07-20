@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart'
-    show InputImage;
+    show InputImage, InputImageRotation;
 
 class SignLanguageProcessor {
   bool _isProcessing = false;
@@ -51,6 +51,7 @@ class SignLanguageProcessor {
             'bytes': inputImage.bytes,
             'width': inputImage.metadata?.size.width.toInt(),
             'height': inputImage.metadata?.size.height.toInt(),
+            'rotation': _rotationDegrees(inputImage.metadata?.rotation),
           });
           if (nativeResult != null) {
             holisticFeatures = nativeResult.cast<double>();
@@ -112,5 +113,18 @@ class SignLanguageProcessor {
     _platformChannel.invokeMethod('closeHolistic').catchError((Object e) {
       debugPrint("Native holistic close error: $e");
     });
+  }
+
+  int _rotationDegrees(InputImageRotation? rotation) {
+    switch (rotation) {
+      case InputImageRotation.rotation90deg:
+        return 90;
+      case InputImageRotation.rotation180deg:
+        return 180;
+      case InputImageRotation.rotation270deg:
+        return 270;
+      default:
+        return 0;
+    }
   }
 }
