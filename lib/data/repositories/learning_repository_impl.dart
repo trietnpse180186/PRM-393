@@ -123,4 +123,14 @@ class LearningRepositoryImpl implements LearningRepository {
       comment: comment,
     );
   }
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchNotifications(int userId) {
+    return remoteDataSource.fetchNotifications(userId);
+  }
+
+  @override
+  Future<void> markNotificationAsRead(int id) {
+    return remoteDataSource.markNotificationAsRead(id);
+  }
 }

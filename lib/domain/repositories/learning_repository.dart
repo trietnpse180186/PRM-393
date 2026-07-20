@@ -36,4 +36,6 @@ abstract class LearningRepository {
     required int rating,
     required String comment,
   });
+  Future<List<Map<String, dynamic>>> fetchNotifications(int userId);
+  Future<void> markNotificationAsRead(int id);
 }

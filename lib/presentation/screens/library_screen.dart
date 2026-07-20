@@ -320,7 +320,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
               children: [
                 // Backdrop Image via CourseCoverImage
                 CourseCoverImage(
-                  courseId: course.id,
+                  coverMediaId: course.coverMediaId,
+                  defaultImageUrl: 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=500',
                   fit: BoxFit.cover,
                 ),
                 // Overlay Gradient/Dimmer
