@@ -278,44 +278,49 @@ class LearningRemoteDataSource {
 
   Future<List<Map<String, dynamic>>> fetchNotifications(int userId) async {
     try {
-      final response = await _dioClient.dio.get('/api/notifications', queryParameters: {
-        'page': 1,
-        'pageSize': 100,
-      });
+      final response = await _dioClient.dio.get('/api/notifications/user/$userId');
       if (response.statusCode == 200) {
-        final data = response.data as Map<String, dynamic>;
-        final items = data['items'] as List<dynamic>? ?? [];
-        return items
-            .map((e) => e as Map<String, dynamic>)
-            .where((item) => item['userId'] == userId)
-            .toList();
+        final list = response.data as List<dynamic>? ?? [];
+        return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
       }
       return [];
     } catch (e) {
-      print("Error fetching notifications: $e");
+      try {
+        final response = await _dioClient.dio.get('/api/notifications', queryParameters: {
+          'page': 1,
+          'pageSize': 100,
+        });
+        if (response.statusCode == 200) {
+          final data = response.data as Map<String, dynamic>;
+          final items = data['items'] as List<dynamic>? ?? [];
+          return items
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .where((item) => item['userId'] == userId)
+              .toList();
+        }
+      } catch (_) {}
       return [];
     }
   }
 
   Future<void> markNotificationAsRead(int id) async {
     try {
-      final getResponse = await _dioClient.dio.get('/api/notifications/$id');
-      if (getResponse.statusCode == 200) {
-        final currentData = getResponse.data as Map<String, dynamic>;
-        final response = await _dioClient.dio.put(
-          '/api/notifications/$id',
-          data: {
-            ...currentData,
-            'isRead': true,
-            'readAt': DateTime.now().toUtc().toIso8601String(),
-          },
-        );
-        if (response.statusCode != 200) {
-          throw Exception('Failed to mark notification as read');
+      await _dioClient.dio.put('/api/notifications/$id/read');
+    } catch (_) {
+      try {
+        final getResponse = await _dioClient.dio.get('/api/notifications/$id');
+        if (getResponse.statusCode == 200) {
+          final currentData = getResponse.data as Map<String, dynamic>;
+          await _dioClient.dio.put(
+            '/api/notifications/$id',
+            data: {
+              ...currentData,
+              'isRead': true,
+              'readAt': DateTime.now().toUtc().toIso8601String(),
+            },
+          );
         }
-      }
-    } catch (e) {
-      print("Error marking notification as read: $e");
+      } catch (_) {}
     }
   }
 }

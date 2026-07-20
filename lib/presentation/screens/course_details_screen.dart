@@ -246,7 +246,6 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                                       children: [
                                         CourseCoverImage(
                                           coverMediaId: course.coverMediaId,
-                                          defaultImageUrl: 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=500',
                                           fit: BoxFit.cover,
                                         ),
                                         Container(
