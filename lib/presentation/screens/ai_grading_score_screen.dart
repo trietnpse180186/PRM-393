@@ -9,10 +9,16 @@ import 'ai_grading_exercise_screen.dart';
 
 class AiGradingScoreScreen extends StatelessWidget {
   final LessonEntity lesson;
+  final double confidence; // Độ tự tin thực tế nguyên bản từ mô hình AI (0.0 đến 1.0)
+  final int totalCapturedFrames;
+  final int validHandFrames;
 
   const AiGradingScoreScreen({
     super.key,
     required this.lesson,
+    this.confidence = 0.88,
+    this.totalCapturedFrames = 0,
+    this.validHandFrames = 0,
   });
 
   @override
@@ -21,6 +27,31 @@ class AiGradingScoreScreen extends StatelessWidget {
     final learningState = context.read<LearningCubit>().state;
     final currentIndex = learningState.currentCourseLessons.indexWhere((l) => l.id == lesson.id);
     final isLastLesson = currentIndex == -1 || currentIndex == learningState.currentCourseLessons.length - 1;
+
+    final scoreInt = (confidence * 100).round().clamp(0, 100);
+    final scoreFraction = scoreInt / 100.0;
+
+    String feedbackText = 'Tuyệt vời!';
+    String feedbackDesc = 'Bạn đã hoàn thành rất tốt cử chỉ của bài học này.';
+    Color scoreColor = AppTheme.primaryColor;
+
+    if (scoreInt >= 85) {
+      feedbackText = 'Xuất sắc! 🎉';
+      feedbackDesc = 'Độ chính xác cử chỉ đạt $scoreInt%. Rất chuẩn xác!';
+      scoreColor = const Color(0xFF10B981);
+    } else if (scoreInt >= 70) {
+      feedbackText = 'Khá tốt! 👍';
+      feedbackDesc = 'Động tác ký hiệu của bạn đạt $scoreInt% độ chính xác.';
+      scoreColor = Colors.amber;
+    } else if (scoreInt >= 50) {
+      feedbackText = 'Cần luyện tập thêm 💪';
+      feedbackDesc = 'Độ chính xác hiện tại là $scoreInt%. Hãy xem lại video mẫu và thử lại nhé.';
+      scoreColor = Colors.orangeAccent;
+    } else {
+      feedbackText = 'Chưa phát hiện cử chỉ ⚠️';
+      feedbackDesc = 'Chỉ số nhận diện đạt $scoreInt%. Hệ thống không nhận thấy cử chỉ ký hiệu phù hợp trong lúc quay. Hãy thực hiện lại nhé!';
+      scoreColor = const Color(0xFFE46C6C);
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -119,7 +150,7 @@ class AiGradingScoreScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 24),
 
-                          // Animated radial progress dial showing score 90/100
+                          // Animated radial progress dial showing score dynamically
                           Stack(
                             alignment: Alignment.center,
                             children: [
@@ -127,10 +158,10 @@ class AiGradingScoreScreen extends StatelessWidget {
                                 width: 140,
                                 height: 140,
                                 child: CircularProgressIndicator(
-                                  value: 0.90,
+                                  value: scoreFraction,
                                   strokeWidth: 8,
                                   backgroundColor: Colors.white.withOpacity(0.05),
-                                  valueColor: const AlwaysStoppedAnimation(AppTheme.primaryColor),
+                                  valueColor: AlwaysStoppedAnimation(scoreColor),
                                 ),
                               ),
                               // Glowing dial shadow
@@ -141,7 +172,7 @@ class AiGradingScoreScreen extends StatelessWidget {
                                   shape: BoxShape.circle,
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppTheme.primaryColor.withOpacity(0.1),
+                                      color: scoreColor.withOpacity(0.15),
                                       blurRadius: 20,
                                       spreadRadius: 2,
                                     ),
@@ -152,11 +183,11 @@ class AiGradingScoreScreen extends StatelessWidget {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    '90',
+                                    '$scoreInt',
                                     style: textTheme.displayLarge?.copyWith(
                                       fontSize: 48,
                                       fontWeight: FontWeight.bold,
-                                      color: AppTheme.primaryColor,
+                                      color: scoreColor,
                                     ),
                                   ),
                                   Text(
@@ -172,7 +203,7 @@ class AiGradingScoreScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 24),
                           Text(
-                            'Tuyệt vời!',
+                            feedbackText,
                             style: textTheme.headlineMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
@@ -181,13 +212,35 @@ class AiGradingScoreScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Bạn đã hoàn thành rất tốt cử chỉ của bài học này.',
+                            feedbackDesc,
                             style: textTheme.bodyMedium?.copyWith(
                               fontSize: 13,
                               color: AppTheme.onSurfaceVariant,
                             ),
                             textAlign: TextAlign.center,
                           ),
+                          if (totalCapturedFrames > 0) ...[
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.white.withOpacity(0.08)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.memory_rounded, color: AppTheme.primaryColor, size: 14),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'MediaPipe AI: $totalCapturedFrames frames (Bàn tay: $validHandFrames frames)',
+                                    style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
