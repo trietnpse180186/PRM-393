@@ -318,7 +318,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Backdrop Image via CourseCoverImage
                 CourseCoverImage(
                   coverMediaId: course.coverMediaId,
                   defaultImageUrl: CategoryVisuals.fromCategory(course.slug).image ?? '',

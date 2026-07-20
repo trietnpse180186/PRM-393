@@ -312,6 +312,20 @@ class LearningRemoteDataSource {
       }
       return [];
     } catch (e) {
+      try {
+        final response = await _dioClient.dio.get('/api/notifications', queryParameters: {
+          'page': 1,
+          'pageSize': 100,
+        });
+        if (response.statusCode == 200) {
+          final data = response.data as Map<String, dynamic>;
+          final items = data['items'] as List<dynamic>? ?? [];
+          return items
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .where((item) => item['userId'] == userId)
+              .toList();
+        }
+      } catch (_) {}
       return [];
     }
   }
@@ -319,7 +333,22 @@ class LearningRemoteDataSource {
   Future<void> markNotificationAsRead(int id) async {
     try {
       await _dioClient.dio.put('/api/notifications/$id/read');
-    } catch (_) {}
+    } catch (_) {
+      try {
+        final getResponse = await _dioClient.dio.get('/api/notifications/$id');
+        if (getResponse.statusCode == 200) {
+          final currentData = getResponse.data as Map<String, dynamic>;
+          await _dioClient.dio.put(
+            '/api/notifications/$id',
+            data: {
+              ...currentData,
+              'isRead': true,
+              'readAt': DateTime.now().toUtc().toIso8601String(),
+            },
+          );
+        }
+      } catch (_) {}
+    }
   }
 }
 
