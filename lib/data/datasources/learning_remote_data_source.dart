@@ -259,13 +259,40 @@ class LearningRemoteDataSource {
     required String comment,
   }) async {
     try {
+      int categoryIdToUse = 1;
+      try {
+        final catRes = await _dioClient.dio.get('/api/feedback_categories?pageSize=100');
+        if (catRes.statusCode == 200) {
+          final raw = catRes.data;
+          final items = raw is List ? raw : (raw is Map ? (raw['items'] ?? raw['Items'] ?? []) : []);
+          if (items is List) {
+            final found = items.firstWhere(
+              (c) {
+                final name = (c['name'] ?? c['Name'] ?? '').toString().toLowerCase();
+                return name == 'course' || name.contains('khóa học') || name.contains('khoá học');
+              },
+              orElse: () => null,
+            );
+            if (found != null) {
+              categoryIdToUse = (found['id'] ?? found['Id']) as int;
+            }
+          }
+        }
+      } catch (_) {}
+
       final response = await _dioClient.dio.post(
         '/api/feedbacks',
         data: {
           'userId': userId,
-          'courseId': courseId,
+          'categoryId': categoryIdToUse,
           'rating': rating,
-          'comment': comment,
+          'subject': 'CourseId:$courseId',
+          'content': comment,
+          'UserId': userId,
+          'CategoryId': categoryIdToUse,
+          'Rating': rating,
+          'Subject': 'CourseId:$courseId',
+          'Content': comment,
         },
       );
       if (response.statusCode != 200 && response.statusCode != 201) {

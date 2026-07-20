@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../core/network/dio_client.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/course_model.dart';
 import '../../domain/entities/lesson_entity.dart';
@@ -30,6 +31,21 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
   int _userRating = 5;
   final TextEditingController _commentController = TextEditingController();
   bool _isSubmittingReview = false;
+  bool _isLessonsExpanded = true; // Quản lý việc đóng/mở danh sách bài học
+
+  // Review System States
+  List<dynamic> _allReviews = [];
+  List<dynamic> _filteredReviews = [];
+  String _activeFilter = 'all';
+  bool _isLoadingReviews = true;
+
+  int _countAll = 0;
+  int _count5 = 0;
+  int _count4 = 0;
+  int _count3 = 0;
+  int _count2 = 0;
+  int _count1 = 0;
+  int _countComment = 0;
 
   @override
   void dispose() {
@@ -53,6 +69,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
 
   void _loadData() {
     context.read<LearningCubit>().loadCourseDetails(_userId, widget.courseId);
+    _loadReviews();
     
     // Auto-enroll if not already enrolled
     final state = context.read<LearningCubit>().state;
@@ -60,6 +77,101 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
     if (!isEnrolled) {
       context.read<LearningCubit>().enrollInCourse(_userId, widget.courseId);
     }
+  }
+
+  Future<void> _loadReviews() async {
+    try {
+      final dio = DioClient().dio;
+      final response = await dio.get('/api/feedbacks?pageSize=1000');
+      if (response.statusCode == 200) {
+        final raw = response.data;
+        List<dynamic> items = [];
+        if (raw is List) {
+          items = raw;
+        } else if (raw is Map) {
+          items = (raw['items'] ?? raw['Items'] ?? raw['data'] ?? []) as List<dynamic>;
+        }
+
+        final filtered = items.where((item) {
+          final subj = (item['subject'] ?? item['Subject'] ?? '').toString();
+          return subj == 'CourseId:${widget.courseId}';
+        }).toList();
+
+        if (mounted) {
+          setState(() {
+            _allReviews = filtered;
+            _calculateStats();
+            _applyFilter();
+            _isLoadingReviews = false;
+          });
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoadingReviews = false;
+        });
+      }
+    }
+  }
+
+  void _calculateStats() {
+    _countAll = _allReviews.length;
+    _count5 = _allReviews.where((r) => (r['rating'] ?? r['Rating']) == 5).length;
+    _count4 = _allReviews.where((r) => (r['rating'] ?? r['Rating']) == 4).length;
+    _count3 = _allReviews.where((r) => (r['rating'] ?? r['Rating']) == 3).length;
+    _count2 = _allReviews.where((r) => (r['rating'] ?? r['Rating']) == 2).length;
+    _count1 = _allReviews.where((r) => (r['rating'] ?? r['Rating']) == 1).length;
+    _countComment = _allReviews.where((r) {
+      final content = r['content'] ?? r['Content'];
+      return content != null && content.toString().trim().isNotEmpty;
+    }).length;
+  }
+
+  void _applyFilter() {
+    if (_activeFilter == 'all') {
+      _filteredReviews = _allReviews;
+    } else if (_activeFilter == 'comment') {
+      _filteredReviews = _allReviews.where((r) {
+        final content = r['content'] ?? r['Content'];
+        return content != null && content.toString().trim().isNotEmpty;
+      }).toList();
+    } else {
+      final ratingNum = int.tryParse(_activeFilter) ?? 5;
+      _filteredReviews = _allReviews.where((r) => (r['rating'] ?? r['Rating']) == ratingNum).toList();
+    }
+  }
+
+  Widget _buildReviewFilterTag(String label, String filterKey) {
+    final bool isActive = _activeFilter == filterKey;
+    const Color mintColor = Color(0xFF10B981);
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _activeFilter = filterKey;
+          _applyFilter();
+        });
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? mintColor : Colors.white.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive ? mintColor : Colors.white.withOpacity(0.08),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isActive ? Colors.white : AppTheme.onSurfaceVariant,
+            fontSize: 12,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -393,98 +505,144 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                                 ),
                                 const SizedBox(height: 24),
 
-                                // Lessons List Header
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      'Nội dung bài học',
-                                      style: textTheme.headlineSmall?.copyWith(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${state.currentCourseLessons.length} Bài học',
-                                      style: textTheme.bodyMedium?.copyWith(
-                                        fontSize: 12,
-                                        color: AppTheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-
-                                // Lessons items
-                                if (state.currentCourseLessons.isEmpty)
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 32.0),
-                                    child: Text(
-                                      'Chưa có bài học nào trong khóa học này.',
-                                      style: TextStyle(color: AppTheme.onSurfaceVariant),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  )
-                                else
-                                  ...List.generate(state.currentCourseLessons.length, (index) {
-                                    final lesson = state.currentCourseLessons[index];
-                                    
-                                    // Logic for locked lessons:
-                                    // The first lesson is unlocked. Next ones are locked if the previous is not completed (status != 2).
-                                    bool isLocked = false;
-                                    if (index > 0) {
-                                      final prevLesson = state.currentCourseLessons[index - 1];
-                                      final prevProg = state.currentCourseProgress.firstWhere(
-                                        (p) => p.lessonId == prevLesson.id,
-                                        orElse: () => UserLessonProgressEntity(
-                                          id: 0,
-                                          userId: _userId,
-                                          lessonId: prevLesson.id,
-                                          status: 0,
-                                          lastPositionSeconds: 0,
-                                          attemptsCount: 0,
-                                          bestAccuracy: 0.0,
-                                          bestScore: 0.0,
-                                          totalTimeSeconds: 0,
-                                          xpEarned: 0,
+                                // Lessons List Expandable Container
+                                AppTheme.glassPanel(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      InkWell(
+                                        onTap: () {
+                                          setState(() {
+                                            _isLessonsExpanded = !_isLessonsExpanded;
+                                          });
+                                        },
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 4.0),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  const Icon(Icons.menu_book_rounded, color: AppTheme.primaryColor, size: 20),
+                                                  const SizedBox(width: 10),
+                                                  Text(
+                                                    'Nội dung bài học',
+                                                    style: textTheme.headlineSmall?.copyWith(
+                                                      fontSize: 16,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                                    decoration: BoxDecoration(
+                                                      color: AppTheme.primaryColor.withOpacity(0.15),
+                                                      borderRadius: BorderRadius.circular(12),
+                                                    ),
+                                                    child: Text(
+                                                      '${state.currentCourseLessons.length} Bài học',
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        color: AppTheme.primaryColor,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Icon(
+                                                    _isLessonsExpanded
+                                                        ? Icons.keyboard_arrow_up_rounded
+                                                        : Icons.keyboard_arrow_down_rounded,
+                                                    color: Colors.white,
+                                                    size: 24,
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                      );
-                                      isLocked = prevProg.status != 2;
-                                    }
-
-                                    // Get current lesson progress
-                                    final lessonProgress = state.currentCourseProgress.firstWhere(
-                                      (p) => p.lessonId == lesson.id,
-                                      orElse: () => UserLessonProgressEntity(
-                                        id: 0,
-                                        userId: _userId,
-                                        lessonId: lesson.id,
-                                        status: 0,
-                                        lastPositionSeconds: 0,
-                                        attemptsCount: 0,
-                                        bestAccuracy: 0.0,
-                                        bestScore: 0.0,
-                                        totalTimeSeconds: 0,
-                                        xpEarned: 0,
                                       ),
-                                    );
 
-                                    // Status mapping: completed, in_progress, locked, not_started
-                                    String statusStr = 'not_started';
-                                    if (isLocked) {
-                                      statusStr = 'locked';
-                                    } else if (lessonProgress.status == 2) {
-                                      statusStr = 'completed';
-                                    } else if (lessonProgress.status == 1) {
-                                      statusStr = 'in_progress';
-                                    }
+                                      // Expandable Lessons Content
+                                      if (_isLessonsExpanded) ...[
+                                        const SizedBox(height: 16),
+                                        if (state.currentCourseLessons.isEmpty)
+                                          const Padding(
+                                            padding: EdgeInsets.symmetric(vertical: 24.0),
+                                            child: Text(
+                                              'Chưa có bài học nào trong khóa học này.',
+                                              style: TextStyle(color: AppTheme.onSurfaceVariant),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          )
+                                        else
+                                          ...List.generate(state.currentCourseLessons.length, (index) {
+                                            final lesson = state.currentCourseLessons[index];
+                                            
+                                            // Logic for locked lessons:
+                                            bool isLocked = false;
+                                            if (index > 0) {
+                                              final prevLesson = state.currentCourseLessons[index - 1];
+                                              final prevProg = state.currentCourseProgress.firstWhere(
+                                                (p) => p.lessonId == prevLesson.id,
+                                                orElse: () => UserLessonProgressEntity(
+                                                  id: 0,
+                                                  userId: _userId,
+                                                  lessonId: prevLesson.id,
+                                                  status: 0,
+                                                  lastPositionSeconds: 0,
+                                                  attemptsCount: 0,
+                                                  bestAccuracy: 0.0,
+                                                  bestScore: 0.0,
+                                                  totalTimeSeconds: 0,
+                                                  xpEarned: 0,
+                                                ),
+                                              );
+                                              isLocked = prevProg.status != 2;
+                                            }
 
-                                    return Padding(
-                                      padding: const EdgeInsets.only(bottom: 12.0),
-                                      child: _buildLessonCard(context, lesson, statusStr, textTheme, index),
-                                    );
-                                  }),
+                                            // Get current lesson progress
+                                            final lessonProgress = state.currentCourseProgress.firstWhere(
+                                              (p) => p.lessonId == lesson.id,
+                                              orElse: () => UserLessonProgressEntity(
+                                                id: 0,
+                                                userId: _userId,
+                                                lessonId: lesson.id,
+                                                status: 0,
+                                                lastPositionSeconds: 0,
+                                                attemptsCount: 0,
+                                                bestAccuracy: 0.0,
+                                                bestScore: 0.0,
+                                                totalTimeSeconds: 0,
+                                                xpEarned: 0,
+                                              ),
+                                            );
+
+                                            // Status mapping: completed, in_progress, locked, not_started
+                                            String statusStr = 'not_started';
+                                            if (isLocked) {
+                                              statusStr = 'locked';
+                                            } else if (lessonProgress.status == 2) {
+                                              statusStr = 'completed';
+                                            } else if (lessonProgress.status == 1) {
+                                              statusStr = 'in_progress';
+                                            }
+
+                                            return Padding(
+                                              padding: const EdgeInsets.only(bottom: 12.0),
+                                              child: _buildLessonCard(context, lesson, statusStr, textTheme, index),
+                                            );
+                                          }),
+                                      ],
+                                    ],
+                                  ),
+                                ),
                                 const SizedBox(height: 16),
 
                                 // About course section
@@ -726,20 +884,23 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
   }
 
   Widget _buildReviewSection(TextTheme textTheme) {
+    const Color mintColor = Color(0xFF10B981);
+
     return AppTheme.glassPanel(
       padding: const EdgeInsets.all(20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // 1. Write Review Section (ON TOP)
           Text(
-            'Đánh giá khóa học này',
+            'Viết đánh giá của bạn',
             style: textTheme.headlineSmall?.copyWith(
               fontSize: 15,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           // Star rating selector
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -763,7 +924,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
               );
             }),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           // Comment TextField
           TextField(
             controller: _commentController,
@@ -786,13 +947,13 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           // Submit Button
           ElevatedButton(
             onPressed: _isSubmittingReview ? null : _submitReview,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.secondaryColor,
-              foregroundColor: Colors.black,
+              backgroundColor: mintColor,
+              foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -804,7 +965,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                     width: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation(Colors.black),
+                      valueColor: AlwaysStoppedAnimation(Colors.white),
                     ),
                   )
                 : const Text(
@@ -812,6 +973,157 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
           ),
+
+          const SizedBox(height: 24),
+          const Divider(color: Colors.white10),
+          const SizedBox(height: 16),
+
+          // 2. Display Reviews List Section (BELOW)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Đánh giá & Nhận xét (${_allReviews.length})',
+                style: textTheme.headlineSmall?.copyWith(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              if (_allReviews.isNotEmpty)
+                Row(
+                  children: [
+                    const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${(_allReviews.fold<double>(0.0, (acc, curr) => acc + (curr['rating'] ?? curr['Rating'] ?? 5)) / (_allReviews.isEmpty ? 1 : _allReviews.length)).toStringAsFixed(1)} / 5.0',
+                      style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Star Rating Filter Tags
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildReviewFilterTag('Tất cả ($_countAll)', 'all'),
+                const SizedBox(width: 8),
+                _buildReviewFilterTag('5 ★ ($_count5)', '5'),
+                const SizedBox(width: 8),
+                _buildReviewFilterTag('4 ★ ($_count4)', '4'),
+                const SizedBox(width: 8),
+                _buildReviewFilterTag('3 ★ ($_count3)', '3'),
+                const SizedBox(width: 8),
+                _buildReviewFilterTag('2 ★ ($_count2)', '2'),
+                const SizedBox(width: 8),
+                _buildReviewFilterTag('1 ★ ($_count1)', '1'),
+                const SizedBox(width: 8),
+                _buildReviewFilterTag('Có bình luận ($_countComment)', 'comment'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Reviews List
+          if (_isLoadingReviews)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(child: CircularProgressIndicator(color: mintColor)),
+            )
+          else if (_filteredReviews.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.02),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withOpacity(0.04)),
+              ),
+              child: const Text(
+                'Chưa có đánh giá nào cho mục lọc này.',
+                style: TextStyle(color: AppTheme.onSurfaceVariant, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _filteredReviews.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final rev = _filteredReviews[index];
+                final userName = (rev['userFullName'] ?? rev['UserFullName'] ?? 'Học viên').toString();
+                final ratingVal = (rev['rating'] ?? rev['Rating'] ?? 5) as int;
+                final contentVal = (rev['content'] ?? rev['Content'] ?? '').toString();
+                final dateVal = (rev['createdAt'] ?? rev['CreatedAt'] ?? '').toString();
+
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.03),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withOpacity(0.06)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 14,
+                                backgroundColor: mintColor.withOpacity(0.2),
+                                child: const Icon(Icons.person, size: 16, color: mintColor),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                userName,
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              if (dateVal.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8.0),
+                                  child: Text(
+                                    dateVal.split('T')[0],
+                                    style: const TextStyle(color: AppTheme.onSurfaceVariant, fontSize: 10),
+                                  ),
+                                ),
+                              Row(
+                                children: List.generate(
+                                  5,
+                                  (i) => Icon(
+                                    i < ratingVal ? Icons.star_rounded : Icons.star_border_rounded,
+                                    color: const Color(0xFFFFD700),
+                                    size: 14,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      if (contentVal.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          contentVal,
+                          style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12, height: 1.4),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -854,6 +1166,9 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
             backgroundColor: AppTheme.primaryColor,
           ),
         );
+
+        // Reload reviews list
+        _loadReviews();
       }
     } catch (e) {
       if (mounted) {
