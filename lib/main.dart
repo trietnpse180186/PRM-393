@@ -274,6 +274,7 @@ class MyApp extends StatelessWidget {
               startLessonUseCase: startLessonUseCase,
               completeLessonUseCase: completeLessonUseCase,
               enrollInCourseUseCase: enrollInCourseUseCase,
+              sendFeedbackUseCase: sendFeedbackUseCase,
             ),
           ),
           BlocProvider<GestureBloc>(

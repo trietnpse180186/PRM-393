@@ -245,7 +245,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                                       fit: StackFit.expand,
                                       children: [
                                         CourseCoverImage(
-                                          courseId: widget.courseId,
+                                          coverMediaId: course.coverMediaId,
                                           fit: BoxFit.cover,
                                         ),
                                         Container(
