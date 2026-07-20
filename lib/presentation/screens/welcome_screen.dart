@@ -240,8 +240,8 @@ class WelcomeScreen extends StatelessWidget {
                           fit: StackFit.expand,
                           children: [
                             // Backdrop Image
-                            Image.network(
-                              'https://lh3.googleusercontent.com/aida-public/AB6AXuDfw_w3gOPEJbQmubI_FOT1iDcAKsjNPYuGXCeKCnWJ0jzgkkftK-X4kXlbk9D2Xy-xh12h9YepQyvSOkv-H887ZTwcTgsJvTAs9YrE3Q4uaeCSSD99t6e6kYrouXlcnVf3hjpM3yFLlS2hDYTxCa3_TLxIDWDsoDTuQCsVeQ-8_AfErHcHf264Exhos4hUT81YFSKbooCQzeXa4O105n4qd4bUPH0gpDUXEaLaS6TFVtBFQesZ0Vs-Ng8jGrxEZZhwzzXvuUh3wWk',
+                            Image.asset(
+                              'lib/presentation/assests/welcome_1.png',
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
                                 return Container(
@@ -401,8 +401,7 @@ class WelcomeScreen extends StatelessWidget {
 
                         // Course Card 1
                         _buildCourseCard(
-                          image:
-                              'https://lh3.googleusercontent.com/aida-public/AB6AXuCdrhjXYjiCyU8kSjI_LKphm-XmF-wSUdxkL5shWnyNidwECAzFz4X0Q2xwFt_NQj2pO2_2DkskdsdOisBj3WBe9E3c7VNsJJE1NliKglRJ2w0WPH_xFhmEyQKqTCyJX-1qxqUSPYWFU_JDLhAR18CBoqa0xBejRWC8pEZspySgiMlrLhRL2BOrZ_BdHJtg8purnWG4gMNgZxcyTgyEh1dzKrnTq73J-zC8K4E-Z1MkHD5EuGc_P4-zOPGx7bIDcnPTjHk-fhHOYlM',
+                          image: 'lib/presentation/assests/welcome_2.png',
                           level: 'Cơ bản',
                           title: 'Nhập môn VSL & Bảng chữ cái',
                           description:
@@ -415,8 +414,7 @@ class WelcomeScreen extends StatelessWidget {
 
                         // Course Card 2
                         _buildCourseCard(
-                          image:
-                              'https://lh3.googleusercontent.com/aida-public/AB6AXuDmV6jrofWQEwwM88ie1Aod8k1XsjI4y1enPbDC9oi4tWokCpSA9MnKslr-NwXDnPH_9AaZvv14iLFlxjprmD3hFkWVmu92M7FtXpPM7t9d9tyW5rBgbxRaHRb0uZf6AH21HxraK3OQIWs-Gc3wYvYnFLw_D3AMcVr7gj1ig9h4Vf7lHOzHXl61VTacdjaEHvkrG5NEevL7_wHGnUJGzDXiwpIeQbiRtUa6YceBhrIxoEeaW-64jyLp0arC62WB7X6HunHeENKYSuA',
+                          image: 'lib/presentation/assests/welcome_3.png',
                           level: 'Trung cấp',
                           title: 'Giao tiếp hàng ngày',
                           description:
@@ -429,8 +427,7 @@ class WelcomeScreen extends StatelessWidget {
 
                         // Course Card 3
                         _buildCourseCard(
-                          image:
-                              'https://lh3.googleusercontent.com/aida-public/AB6AXuAYDe4KYQY1cDNDJUMKEnuidj0WNsIdZgI0T6AXl_XhOUoqAz1Cuv8v4wRNYdwbb38wKui6JlNtTQ0tM4FfePXxAjwfbTYUkZQbC9Qo3KeRG2Fugv4R3aZ5MTonX0D4avx6NUVuwTWo7X7W23uy0zS-zRhC0WcrkjuoSkAlKCowIul9XeCWkQios-HGJBvCaWNeAYpkXeQ1EsuFoL2al7URospEdueosssNnBFfZIARI2xp3v_opAt1Pz9zksx99wKnSptehgjIdAw',
+                          image: 'lib/presentation/assests/welcome_4.png',
                           level: 'Chuyên đề',
                           title: 'Từ vựng Gia đình & Cảm xúc',
                           description:
@@ -538,7 +535,7 @@ class WelcomeScreen extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.network(
+                Image.asset(
                   image,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
