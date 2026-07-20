@@ -36,6 +36,8 @@ class _AiGradingExerciseScreenState extends State<AiGradingExerciseScreen> with 
   bool _isProcessingFrame = false;
   bool _isAnalyzing = false;
   Timer? _analysisTimer;
+  List<double>? _latestLandmarks;
+  bool _showSkeletonOverlay = true;
 
   @override
   void initState() {
@@ -147,6 +149,9 @@ class _AiGradingExerciseScreenState extends State<AiGradingExerciseScreen> with 
 
       final features = await _processor.processImage(inputImage);
       if (mounted && features.isNotEmpty) {
+        setState(() {
+          _latestLandmarks = _processor.latestCroppedFeatures ?? features;
+        });
         context.read<GestureBloc>().add(GestureFrameCaptured(features));
       }
     } catch (e) {
@@ -424,11 +429,20 @@ class _AiGradingExerciseScreenState extends State<AiGradingExerciseScreen> with 
       );
     }
 
-    // Mirroring front camera preview
-    return Transform(
-      alignment: Alignment.center,
-      transform: Matrix4.rotationY(3.14159265), // Mirror horizontally for selfie view
-      child: CameraPreview(_cameraController!),
+    // Mirroring front camera preview with Skeleton overlay
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.rotationY(3.14159265), // Mirror horizontally for selfie view
+          child: CameraPreview(_cameraController!),
+        ),
+        if (_showSkeletonOverlay && _latestLandmarks != null)
+          CustomPaint(
+            painter: SkeletonPainter(landmarks: _latestLandmarks),
+          ),
+      ],
     );
   }
 
@@ -503,34 +517,77 @@ class _AiGradingExerciseScreenState extends State<AiGradingExerciseScreen> with 
                         ),
                       ),
                     ),
-                    // Status overlay
+                    // Status & Skeleton Toggle overlay
                     Positioned(
                       top: 12,
                       left: 12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.6),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
+                      right: 12,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.6),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: _isAnalyzing ? AppTheme.primaryColor : const Color(0xFFE46C6C),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  _isAnalyzing ? 'Đang chấm điểm...' : 'AI Camera Đang Hoạt Động',
+                                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () {
+                              setState(() {
+                                _showSkeletonOverlay = !_showSkeletonOverlay;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: _isAnalyzing ? AppTheme.primaryColor : const Color(0xFFE46C6C),
+                                color: Colors.black.withOpacity(0.6),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: _showSkeletonOverlay ? const Color(0xFF10B981) : Colors.white24,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.accessibility_new_rounded,
+                                    size: 14,
+                                    color: _showSkeletonOverlay ? const Color(0xFF10B981) : Colors.white60,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _showSkeletonOverlay ? 'Khung Xương: BẬT' : 'Khung Xương: TẮT',
+                                    style: TextStyle(
+                                      color: _showSkeletonOverlay ? const Color(0xFF10B981) : Colors.white60,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              _isAnalyzing ? 'Đang chấm điểm...' : 'AI Camera Đang Hoạt Động',
-                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -791,5 +848,113 @@ class _AiGradingExerciseScreenState extends State<AiGradingExerciseScreen> with 
         ],
       ),
     );
+  }
+}
+
+/// CustomPainter để vẽ trực tiếp khung xương các điểm khớp Pose và Bàn tay đè lên Camera View
+class SkeletonPainter extends CustomPainter {
+  final List<double>? landmarks;
+
+  SkeletonPainter({required this.landmarks});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (landmarks == null || landmarks!.isEmpty) return;
+
+    final paintJoint = Paint()
+      ..color = const Color(0xFF10B981) // Mint green
+      ..style = PaintingStyle.fill;
+
+    final paintBone = Paint()
+      ..color = const Color(0xFF5D5FEF).withOpacity(0.85) // Neon Purple
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke;
+
+    final paintHandBone = Paint()
+      ..color = Colors.amberAccent.withOpacity(0.9)
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke;
+
+    final paintHandJoint = Paint()
+      ..color = Colors.amberAccent
+      ..style = PaintingStyle.fill;
+
+    Offset getPoint(int idx) {
+      if (idx * 3 + 1 >= landmarks!.length) return Offset.zero;
+      final x = landmarks![idx * 3];
+      final y = landmarks![idx * 3 + 1];
+      if (x == 0.0 && y == 0.0) return Offset.zero;
+      // Mirroring horizontally for selfie camera preview (1.0 - x)
+      return Offset((1.0 - x) * size.width, y * size.height);
+    }
+
+    // Pose Bones (0..32)
+    final poseBones = [
+      [11, 12], // Shoulders
+      [11, 13], [13, 15], // Left Arm
+      [12, 14], [14, 16], // Right Arm
+      [11, 23], [12, 24], [23, 24], // Torso
+      [23, 25], [25, 27], // Left Leg
+      [24, 26], [26, 28], // Right Leg
+    ];
+
+    for (final bone in poseBones) {
+      final p1 = getPoint(bone[0]);
+      final p2 = getPoint(bone[1]);
+      if (p1 != Offset.zero && p2 != Offset.zero) {
+        canvas.drawLine(p1, p2, paintBone);
+      }
+    }
+
+    for (int i = 0; i < 33; i++) {
+      final p = getPoint(i);
+      if (p != Offset.zero) {
+        canvas.drawCircle(p, 3.5, paintJoint);
+      }
+    }
+
+    // Hand Bones (21 points)
+    final handBones = [
+      [0, 1], [1, 2], [2, 3], [3, 4],       // Thumb
+      [0, 5], [5, 6], [6, 7], [7, 8],       // Index
+      [0, 9], [9, 10], [10, 11], [11, 12],   // Middle
+      [0, 13], [13, 14], [14, 15], [15, 16], // Ring
+      [0, 17], [17, 18], [18, 19], [19, 20], // Pinky
+    ];
+
+    // Left Hand (Points 33..53)
+    for (final bone in handBones) {
+      final p1 = getPoint(33 + bone[0]);
+      final p2 = getPoint(33 + bone[1]);
+      if (p1 != Offset.zero && p2 != Offset.zero) {
+        canvas.drawLine(p1, p2, paintHandBone);
+      }
+    }
+    for (int i = 33; i < 54; i++) {
+      final p = getPoint(i);
+      if (p != Offset.zero) {
+        canvas.drawCircle(p, 2.5, paintHandJoint);
+      }
+    }
+
+    // Right Hand (Points 54..74)
+    for (final bone in handBones) {
+      final p1 = getPoint(54 + bone[0]);
+      final p2 = getPoint(54 + bone[1]);
+      if (p1 != Offset.zero && p2 != Offset.zero) {
+        canvas.drawLine(p1, p2, paintHandBone);
+      }
+    }
+    for (int i = 54; i < 75; i++) {
+      final p = getPoint(i);
+      if (p != Offset.zero) {
+        canvas.drawCircle(p, 2.5, paintHandJoint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant SkeletonPainter oldDelegate) {
+    return oldDelegate.landmarks != landmarks;
   }
 }
