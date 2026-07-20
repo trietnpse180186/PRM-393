@@ -275,6 +275,25 @@ class LearningRemoteDataSource {
       throw Exception('Lỗi gửi đánh giá: ${e.toString()}');
     }
   }
+
+  Future<List<Map<String, dynamic>>> fetchNotifications(int userId) async {
+    try {
+      final response = await _dioClient.dio.get('/api/notifications/user/$userId');
+      if (response.statusCode == 200) {
+        final list = response.data as List<dynamic>? ?? [];
+        return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> markNotificationAsRead(int id) async {
+    try {
+      await _dioClient.dio.put('/api/notifications/$id/read');
+    } catch (_) {}
+  }
 }
 
 extension DateTimeExtension on DateTime {
